@@ -10,8 +10,8 @@
 import { WebSocket } from "ws";
 
 const ASSEMBLYAI_URL =
-  "wss://api.assemblyai.com/v2/realtime/ws" +
-  "?sample_rate=48000&encoding=pcm_s16le";
+  "wss://streaming.assemblyai.com/v3/ws" +
+  "?sample_rate=48000&format_turns=true";
 
 export default {
   name: "AssemblyAI (speech-to-text)",
@@ -49,11 +49,14 @@ export default {
   },
 
   sendAudio(pcm) {
-    if (this.socket?.readyState === WebSocket.OPEN) {
-      // AssemblyAI v2 realtime expects base64-encoded audio_data frames
-      this.socket.send(JSON.stringify({ audio_data: pcm.toString("base64") }));
-    }
-  },
+  console.log("Sending", pcm.length, "bytes to AssemblyAI");
+
+  if (this.socket?.readyState === WebSocket.OPEN) {
+    this.socket.send(JSON.stringify({
+      audio_data: pcm.toString("base64")
+    }));
+  }
+},
 
   async disconnect() {
     if (this.socket?.readyState === WebSocket.OPEN) {
