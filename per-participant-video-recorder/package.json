@@ -1,0 +1,25 @@
+{
+  "name": "per-participant-video-recorder",
+  "version": "1.0.0",
+  "description": "Plug-and-play MeetStream Labs example that records every meeting participant's audio and video as separate local files.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test_downloader.mjs"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@ngrok/ngrok": "^1.4.1",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fs-extra": "^11.2.0",
+    "p-limit": "^6.2.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0"
+  }
+}
