@@ -42,7 +42,7 @@ Install the app once:
 npm.cmd install
 ```
 
-Open the `.env` file and fill in these values:
+Create a `.env` file and fill in these values:
 
 ```env
 MEETSTREAM_API_KEY=your_meetstream_key_here
