@@ -1,8 +1,8 @@
 # MeetStream Meeting Chat Bot
 
-A Node.js bot that joins Google Meet, Zoom, or Microsoft Teams meetings. Deepgram transcribes the meeting, OpenAI answers requests, and MeetStream posts the answers in meeting chat.
+A Node.js bot that joins Google Meet, Zoom, or Microsoft Teams meetings. Deepgram turns speech into text, OpenAI answers requests, and MeetStream posts the answers in the meeting chat.
 
-The bot responds only when an utterance contains a configured trigger such as `hey bot` or `hey assistant`. It keeps the complete in-memory transcript for full-meeting summaries.
+The bot responds only when someone says a configured wake phrase such as `hey bot` or `hey assistant`. It keeps the meeting transcript in memory so it can summarize everything discussed since the bot started listening.
 
 ## Requirements
 
@@ -13,6 +13,27 @@ The bot responds only when an utterance contains a configured trigger such as `h
 - [ngrok authtoken](https://dashboard.ngrok.com/get-started/your-authtoken), unless `CALLBACK_URL` is set
 
 OpenAI and Deepgram are called directly by this app. Their keys do not need to be added to MeetStream Integrations.
+
+## OpenAI model choice and cost
+
+The bot currently uses `gpt-5.6-terra`, which is the balanced choice for meeting questions and summaries.
+
+| Model | Best for | Input cost | Output cost |
+| --- | --- | ---: | ---: |
+| `gpt-5.6-luna` | Routine questions and summaries at the lowest cost | $1 per 1 million tokens | $6 per 1 million tokens |
+| `gpt-5.6-terra` | Better-quality meeting assistance with balanced cost | $2.50 per 1 million tokens | $15 per 1 million tokens |
+| `gpt-5.6-sol` | Difficult analysis where answer quality matters more than speed or cost | $5 per 1 million tokens | $30 per 1 million tokens |
+
+Prices are current as of July 22, 2026. Check the [official OpenAI model comparison](https://developers.openai.com/api/docs/models/compare) before budgeting because prices can change.
+
+A token is a small piece of text. OpenAI charges separately for:
+
+- **Input tokens:** the transcript, instructions, and question sent to the model.
+- **Output tokens:** the answer returned by the model.
+
+This bot sends the complete transcript again whenever it answers a wake-word request. Therefore, questions asked later in a long meeting use more input tokens than questions asked near the beginning. Only wake-word requests call OpenAI; ordinary speech is transcribed but does not create an OpenAI response. Deepgram transcription is billed separately.
+
+The bot limits each answer to 500 output tokens and uses no extra reasoning effort. It usually consumes less than that limit because replies are requested to be concise. For this use case, keep `gpt-5.6-terra` for balanced quality or choose `gpt-5.6-luna` when minimizing cost is more important.
 
 ## Setup
 
@@ -46,15 +67,15 @@ WAKE_WORD=hey bot,hey assistant
 npm start
 ```
 
-After the bot is admitted, the terminal should show:
+After admitting the bot to the meeting, wait for these messages:
 
 ```text
-✅ Bot joined the meeting
-✅ Meeting chat ready
-✅ Listening for: hey bot / hey assistant
+Bot joined the meeting
+Meeting chat ready
+Listening for: hey bot / hey assistant
 ```
 
-Spoken text is marked with `🎤`. Answers are marked with `💬` and sent to meeting chat. Routine webhook and post-processing events are hidden.
+Say the wake phrase and request in the same sentence, for example: `hey bot, summarize the meeting`.
 
 Press Ctrl+C to remove the bot from the meeting and close the local server and tunnel.
 
@@ -67,10 +88,10 @@ npm test
 ## Troubleshooting
 
 - `OPENAI_API_KEY failed`: replace the key and confirm API billing or credits are available.
-- No `Meeting chat ready`: MeetStream did not connect to the local control WebSocket.
-- No `Listening for`: check the MeetStream audio connection, `DEEPGRAM_API_KEY`, and its quota.
-- No `🎤` output: confirm the bot is admitted and both readiness messages appeared.
-- No reply: say the trigger and request in one utterance, for example `hey bot, summarize the meeting`.
-- Bot stays in the meeting after Ctrl+C: note the printed bot session ID and retry Ctrl+C once.
+- No `Meeting chat ready`: MeetStream did not connect to the local chat connection.
+- No `Listening for`: check the MeetStream audio connection, Deepgram key, and Deepgram quota.
+- No spoken text in the terminal: confirm the bot was admitted and both readiness messages appeared.
+- No reply: say the wake phrase and request together, for example `hey bot, what are the action items?`.
+- Bot stays after Ctrl+C: note the displayed bot session ID and press Ctrl+C once more.
 
-The transcript is kept only in memory and is discarded when the process stops.
+The transcript is stored only in memory and is discarded when the program stops.
