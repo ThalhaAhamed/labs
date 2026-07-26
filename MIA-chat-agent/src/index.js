@@ -1,17 +1,18 @@
 import dotenv from 'dotenv';
-import { validateOpenAIKey } from './bridgeServer.js';
-import { deployBot, removeBot } from './deployBot.js';
-import { startNgrokTunnel, startWebhookServer } from './webhookServer.js';
+import { configureWakeWordBypass, deployBot, removeBot, validateAgentConfig } from './deployBot.js';
+import { createBotEventTracker, startNgrokTunnel, startWebhookServer } from './webhookServer.js';
 
 let server;
 let tunnel;
 let activeBot;
 let stopping;
+let startup;
+const botEvents = createBotEventTracker();
 
 dotenv.config({ override: true, quiet: true });
 
 function settings() {
-  const required = ['MEETSTREAM_API_KEY', 'OPENAI_API_KEY', 'DEEPGRAM_API_KEY', 'MEETING_LINK'];
+  const required = ['MEETSTREAM_API_KEY', 'MEETSTREAM_AGENT_CONFIG_ID', 'MEETING_LINK'];
   const callbackUrl = process.env.CALLBACK_URL?.trim();
   if (!callbackUrl) required.push('NGROK_AUTHTOKEN');
   const missing = required.filter((name) => !process.env[name]?.trim() || /^your_.+_here$/i.test(process.env[name].trim()));
@@ -28,27 +29,27 @@ function settings() {
   const port = Number(process.env.PORT || 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT in .env must be a whole number from 1 to 65535.');
 
-  const wakeWords = (process.env.WAKE_WORD || 'hey bot,hey assistant').split(',').map((word) => word.trim()).filter(Boolean);
-  if (!wakeWords.length) throw new Error('WAKE_WORD must contain at least one phrase, such as hey bot.');
-
   if (callbackUrl && !/^https:\/\//i.test(callbackUrl)) throw new Error('CALLBACK_URL must be a public address starting with https://.');
+  const bypassValue = process.env.BYPASS_WAKE_WORD?.trim().toLowerCase() || 'false';
+  if (!['true', 'false'].includes(bypassValue)) throw new Error('BYPASS_WAKE_WORD must be true or false.');
 
   return {
     apiKey: process.env.MEETSTREAM_API_KEY.trim(),
-    openaiKey: process.env.OPENAI_API_KEY.trim(),
-    deepgramKey: process.env.DEEPGRAM_API_KEY.trim(),
+    agentConfigId: process.env.MEETSTREAM_AGENT_CONFIG_ID.trim(),
     meetingLink: meetingLink.href,
     port,
-    wakeWords,
-    callbackUrl
+    callbackUrl,
+    bypassWakeWord: bypassValue === 'true'
   };
 }
 
 async function main() {
   const config = settings();
-  await validateOpenAIKey(config.openaiKey);
-  console.log('✅ OpenAI ready');
-  server = await startWebhookServer(config.port, config);
+  const agent = await validateAgentConfig(config.apiKey, config.agentConfigId);
+  await configureWakeWordBypass(config.apiKey, config.agentConfigId, agent, config.bypassWakeWord);
+  if (config.bypassWakeWord) console.warn('⚠️ Wake-word bypass is ACTIVE: MIA will respond to every final transcript.');
+  console.log(`✅ Hosted Agent ready (${agent.Mode}, chat)`);
+  server = await startWebhookServer(config.port, botEvents.handle);
   console.log(`✅ Local server ready on port ${config.port}`);
   if (!config.callbackUrl) {
     tunnel = await startNgrokTunnel(config.port);
@@ -57,23 +58,20 @@ async function main() {
   }
 
   const deployed = await deployBot(config);
-  if (stopping) {
-    await removeBot(config.apiKey, deployed.bot_id);
-    return;
-  }
   activeBot = { apiKey: config.apiKey, id: deployed.bot_id };
-  console.log(`⏳ Bot joining meeting (session: ${deployed.bot_id})`);
+  if (stopping) return;
+  console.log(`⏳ Hosted Agent joining meeting (session: ${deployed.bot_id})`);
+  console.log(`Test session ${deployed.bot_id}: keep Google Meet chat visible and do not press Ctrl+C for at least 30 seconds after "Bot is listening".`);
 }
 
-main().catch(async (error) => {
+startup = main().catch(async (error) => {
   console.error(`❌ ${error.message}`);
-  await closeServices();
+  if (!stopping) await closeServices();
   process.exitCode = 1;
 });
 
 async function closeServices() {
   if (tunnel) await tunnel.close().catch(() => {});
-  server?.closeBridge?.();
   if (server) await new Promise((resolve) => server.close(resolve));
 }
 
@@ -81,17 +79,22 @@ async function stop() {
   if (stopping) return stopping;
   stopping = (async () => {
     console.log('\nStopping...');
+    await startup;
     if (activeBot) {
-      await removeBot(activeBot.apiKey, activeBot.id)
-        .then(() => console.log('✅ Bot left the meeting'))
-        .catch((error) => console.error(`❌ Could not remove bot: ${error.message}`));
-      activeBot = null;
+      try {
+        await removeBot(activeBot.apiKey, activeBot.id, botEvents.waitForTerminal);
+        activeBot = null;
+        console.log('✅ MeetStream confirmed the bot stopped');
+      } catch (error) {
+        process.exitCode = 1;
+        console.error(`❌ Could not confirm bot removal: ${error.message}`);
+      }
     }
     await closeServices();
   })();
   await stopping;
-  process.exitCode = 0;
+  process.exitCode ??= 0;
 }
 
-process.once('SIGINT', stop);
-process.once('SIGTERM', stop);
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);

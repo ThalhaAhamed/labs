@@ -1,73 +1,63 @@
 # Quick Start
 
-Follow these steps once to prepare the meeting bot.
+This project launches an Agent already configured in the MeetStream dashboard. You do not need to configure OpenAI in the code.
 
-## 1. Install Node.js
+## 1. Prepare the Hosted Agent
 
-Install the current [Node.js LTS](https://nodejs.org/) version. Open this project folder in VS Code, choose **Terminal > New Terminal**, and enter:
+Open **MeetStream Dashboard > Agents** and confirm:
+
+- Mode is **Pipeline**.
+- Response type is **Chat**.
+- The OpenAI integration is connected.
+- Native wake words are enabled with an 8-second active window.
+- Deepgram uses `nova-3` and boosts the configured wake phrases and their common transcription variants.
+- Your changes are saved.
+
+Copy the complete Agent ID shown in its details.
+
+## 2. Install the Project
+
+Install [Node.js LTS](https://nodejs.org/). Open this folder in VS Code, choose **Terminal > New Terminal**, and enter:
 
 ```console
 npm install
 ```
 
-Wait until the command finishes.
+## 3. Add the Bot Settings
 
-## 2. Add your keys
-
-Make a copy of `.env.example` and name the copy `.env`. Open `.env` and replace each placeholder with your own key or meeting link:
+Make a copy of `.env.example` and name it `.env`. Replace the placeholders:
 
 ```dotenv
 MEETSTREAM_API_KEY=your_meetstream_key_here
-OPENAI_API_KEY=your_openai_key_here
-DEEPGRAM_API_KEY=your_deepgram_key_here
+MEETSTREAM_AGENT_CONFIG_ID=your_agent_config_id_here
 NGROK_AUTHTOKEN=your_ngrok_token_here
 MEETING_LINK=https://meet.google.com/abc-defg-hij
 ```
 
-Create the keys at [MeetStream](https://app.meetstream.ai/), [OpenAI](https://platform.openai.com/api-keys), [Deepgram](https://console.deepgram.com/), and [ngrok](https://dashboard.ngrok.com/get-started/your-authtoken). OpenAI API billing must be enabled.
+Keep `.env` private. Provider keys belong in **MeetStream Dashboard > Integrations**, not in this project.
 
-Keep `.env` private. Do not share it or commit it to Git.
-
-## 3. Understand the OpenAI model
-
-The bot currently uses `gpt-5.6-terra`. It offers a good balance of answer quality and cost for meeting questions and summaries.
-
-- `gpt-5.6-luna`: cheapest; suitable for simple questions and routine summaries.
-- `gpt-5.6-terra`: balanced; recommended for this bot.
-- `gpt-5.6-sol`: most capable and most expensive; useful for difficult analysis.
-
-OpenAI charges for tokens, which are small pieces of text. Longer meetings cost more because the bot sends the meeting transcript with each wake-word question. The answer also uses tokens, but each answer is limited to 500 output tokens. See the [README model table](README.md#openai-model-choice-and-cost) for current prices.
-
-## 4. Start the bot
-
-Enter this in the terminal:
+## 4. Start the Bot
 
 ```console
 npm start
 ```
 
-Admit the bot when it enters the meeting waiting room. It is ready after the terminal shows:
+Admit the bot when it enters the meeting waiting room.
+
+## 5. Use the Agent
+
+Address the Agent and give the request in one sentence:
 
 ```text
-Bot joined the meeting
-Meeting chat ready
-Listening for: hey bot / hey assistant
+Hey bot, list the action items.
+Okay assistant, summarize the meeting.
 ```
 
-## 5. Talk to the bot
+The reply appears in the meeting chat. Its behavior comes from the Hosted Agent saved in the MeetStream dashboard.
+Wait for one response before asking another question so separate requests are not merged into one transcription turn.
 
-Say the wake phrase and your request in the same sentence:
+## 6. Stop the Bot
 
-```text
-Hey bot, what is two times two?
-Hey assistant, list the action items.
-Hey bot, summarize the meeting.
-```
+Click inside the terminal and press **Ctrl+C**. The program keeps its webhook open until MeetStream confirms the bot stopped, then closes.
 
-The response appears in the meeting chat. The summary includes the conversation captured since the bot started listening.
-
-## 6. Stop the bot
-
-Click inside the terminal and press **Ctrl+C**. This removes the bot from the meeting and stops the program.
-
-If something does not work, see [Troubleshooting](README.md#troubleshooting).
+If something fails, see [Troubleshooting](README.md#troubleshooting).

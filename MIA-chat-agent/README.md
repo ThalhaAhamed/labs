@@ -1,65 +1,63 @@
-# MeetStream Meeting Chat Bot
+# MeetStream Hosted Meeting Agent
 
-A Node.js bot that joins Google Meet, Zoom, or Microsoft Teams meetings. Deepgram turns speech into text, OpenAI answers requests, and MeetStream posts the answers in the meeting chat.
+A small Node.js example that deploys a MeetStream Infrastructure Agent (MIA) into Google Meet, Zoom, or Microsoft Teams.
 
-The bot responds only when someone says a configured wake phrase such as `hey bot` or `hey assistant`. It keeps the meeting transcript in memory so it can summarize everything discussed since the bot started listening.
+MeetStream hosts the agent runtime. The selected dashboard Agent controls transcription, activation instructions, the model, and chat responses. This project only starts the bot, receives lifecycle webhooks, and removes the bot when the program stops.
+
+## Current Hosted Agent
+
+The configured Agent uses:
+
+| Setting | Value |
+| --- | --- |
+| Mode | Pipeline |
+| Response | Meeting chat |
+| Provider | OpenAI |
+| Model | `gpt-4.1-mini` |
+| Transcription | Deepgram `nova-3` |
+| Activation | Native wake-word gate with an 8-second active window |
+
+Change these settings in **MeetStream Dashboard > Agents**. New bot deployments use the saved dashboard configuration.
+
+The native wake-word list includes common transcription variants such as `here assistant`, `hey bought`, and `hey bud`.
 
 ## Requirements
 
 - [Node.js 20 or newer](https://nodejs.org/)
 - [MeetStream API key](https://app.meetstream.ai/)
-- [OpenAI API key](https://platform.openai.com/api-keys) with API billing enabled
-- [Deepgram API key](https://console.deepgram.com/)
+- A saved MeetStream Hosted Agent
 - [ngrok authtoken](https://dashboard.ngrok.com/get-started/your-authtoken), unless `CALLBACK_URL` is set
+- OpenAI integration configured in the MeetStream dashboard
 
-OpenAI and Deepgram are called directly by this app. Their keys do not need to be added to MeetStream Integrations.
-
-## OpenAI model choice and cost
-
-The bot currently uses `gpt-5.6-terra`, which is the balanced choice for meeting questions and summaries.
-
-| Model | Best for | Input cost | Output cost |
-| --- | --- | ---: | ---: |
-| `gpt-5.6-luna` | Routine questions and summaries at the lowest cost | $1 per 1 million tokens | $6 per 1 million tokens |
-| `gpt-5.6-terra` | Better-quality meeting assistance with balanced cost | $2.50 per 1 million tokens | $15 per 1 million tokens |
-| `gpt-5.6-sol` | Difficult analysis where answer quality matters more than speed or cost | $5 per 1 million tokens | $30 per 1 million tokens |
-
-Prices are current as of July 22, 2026. Check the [official OpenAI model comparison](https://developers.openai.com/api/docs/models/compare) before budgeting because prices can change.
-
-A token is a small piece of text. OpenAI charges separately for:
-
-- **Input tokens:** the transcript, instructions, and question sent to the model.
-- **Output tokens:** the answer returned by the model.
-
-This bot sends the complete transcript again whenever it answers a wake-word request. Therefore, questions asked later in a long meeting use more input tokens than questions asked near the beginning. Only wake-word requests call OpenAI; ordinary speech is transcribed but does not create an OpenAI response. Deepgram transcription is billed separately.
-
-The bot limits each answer to 500 output tokens and uses no extra reasoning effort. It usually consumes less than that limit because replies are requested to be concise. For this use case, keep `gpt-5.6-terra` for balanced quality or choose `gpt-5.6-luna` when minimizing cost is more important.
+The OpenAI key is not read by this project. MeetStream uses the integration attached to the Hosted Agent.
 
 ## Setup
+
+Install dependencies:
 
 ```console
 npm install
 ```
 
-Copy `.env.example` to `.env` and set:
+Copy `.env.example` to `.env`:
 
 ```dotenv
 MEETSTREAM_API_KEY=your_meetstream_key_here
-OPENAI_API_KEY=your_openai_key_here
-DEEPGRAM_API_KEY=your_deepgram_key_here
+MEETSTREAM_AGENT_CONFIG_ID=your_agent_config_id_here
 NGROK_AUTHTOKEN=your_ngrok_token_here
 MEETING_LINK=https://meet.google.com/abc-defg-hij
 ```
 
-Optional settings:
+Find `MEETSTREAM_AGENT_CONFIG_ID` in the saved Agent details in the MeetStream dashboard.
+
+Optional:
 
 ```dotenv
 PORT=3000
-WAKE_WORD=hey bot,hey assistant
 # CALLBACK_URL=https://your-domain.example/webhooks/meetstream
 ```
 
-`CALLBACK_URL` replaces the automatic ngrok tunnel and must be a public HTTPS URL.
+`CALLBACK_URL` replaces the temporary ngrok webhook tunnel and must be a public HTTPS address.
 
 ## Run
 
@@ -67,17 +65,41 @@ WAKE_WORD=hey bot,hey assistant
 npm start
 ```
 
-After admitting the bot to the meeting, wait for these messages:
+Admit the bot from the meeting waiting room. After it joins, address it and give the request together:
 
 ```text
-Bot joined the meeting
-Meeting chat ready
-Listening for: hey bot / hey assistant
+Hey bot, what are the action items?
+Okay assistant, summarize the meeting.
 ```
 
-Say the wake phrase and request in the same sentence, for example: `hey bot, summarize the meeting`.
+The Hosted Agent posts its response in the meeting chat.
 
-Press Ctrl+C to remove the bot from the meeting and close the local server and tunnel.
+Press Ctrl+C to ask MeetStream to remove the bot, then close the local webhook server and ngrok tunnel.
+
+## How Hosted Deployment Works
+
+The create-bot request attaches the dashboard Agent. MeetStream automatically wires its hosted bridge:
+
+```javascript
+{
+  meeting_link: meetingLink,
+  agent_config_id: agentConfigId
+}
+```
+
+There is no local speech-to-text, activation detector, LLM, or chat bridge.
+
+## Model Choice and Token Usage
+
+For Pipeline mode, choose an OpenAI text model in the MeetStream Agent editor:
+
+| Model tier | Simple use case |
+| --- | --- |
+| Lower-cost model | Routine questions and short summaries |
+| Balanced model | General meeting assistance |
+| Stronger model | Difficult analysis where quality matters more than latency and cost |
+
+Transcription is billed through Deepgram and model responses through OpenAI. Longer meetings and responses generally cost more.
 
 ## Test
 
@@ -87,11 +109,10 @@ npm test
 
 ## Troubleshooting
 
-- `OPENAI_API_KEY failed`: replace the key and confirm API billing or credits are available.
-- No `Meeting chat ready`: MeetStream did not connect to the local chat connection.
-- No `Listening for`: check the MeetStream audio connection, Deepgram key, and Deepgram quota.
-- No spoken text in the terminal: confirm the bot was admitted and both readiness messages appeared.
-- No reply: say the wake phrase and request together, for example `hey bot, what are the action items?`.
-- Bot stays after Ctrl+C: note the displayed bot session ID and press Ctrl+C once more.
+- `Fill in MEETSTREAM_AGENT_CONFIG_ID`: copy the complete ID from the saved dashboard Agent.
+- Bot joins but does not respond: verify the Agent ID and the OpenAI and Deepgram integrations.
+- Response is spoken instead of posted: save both the documented response type and dashboard response modality as **Chat**, then deploy a new bot.
+- No activation response: say the wake phrase and request together, then pause while the transcription turn completes.
+- Bot remains after Ctrl+C: keep the terminal open. The app retries during MeetStream join/requeue transitions and waits up to 90 seconds for `MeetStream confirmed the bot stopped`.
 
-The transcript is stored only in memory and is discarded when the program stops.
+See the official [MeetStream Hosted Agent guide](https://docs.meetstream.ai/guides/mia-meetstream-infrastructure-agents/create-mia).
