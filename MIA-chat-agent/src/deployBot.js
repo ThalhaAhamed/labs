@@ -118,6 +118,7 @@ export async function deployBot({ apiKey, agentConfigId, meetingLink, callbackUr
   const payload = {
     meeting_link: meetingLink,
     bot_name: 'Meeting Summary Bot',
+    bot_message: "Hi, I'm MIA Chat Bot. Ask me a question or ask me to summarize the meeting.",
     video_required: false,
     agent_config_id: agentConfigId
   };

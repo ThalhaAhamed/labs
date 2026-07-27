@@ -7,12 +7,8 @@ export function startWebhookServer(port, onEvent = () => {}) {
 
   app.get('/health', (_request, response) => response.json({ ok: true }));
   app.post(['/webhooks/meetstream', '/webhook'], (request, response) => {
-    console.log(`[RAW WEBHOOK] ${request.method} ${request.path}\n${JSON.stringify(request.body ?? {}, null, 2)}`);
     const event = request.body || {};
     onEvent(event);
-    if (isMiaLifecycleEvent(event)) {
-      console.log(`MIA lifecycle webhook:\n${JSON.stringify(event, null, 2)}`);
-    }
     const output = formatWebhookEvent(event);
     if (output) console.log(output);
     response.status(200).send('ok');
@@ -31,22 +27,6 @@ export function startWebhookServer(port, onEvent = () => {}) {
         : `The webhook listener could not start: ${error.message}`
     )));
   });
-}
-
-export function isMiaLifecycleEvent(payload = {}) {
-  const names = [
-    payload.bot_event,
-    payload.event,
-    payload.event_type,
-    payload.type,
-    payload.name,
-    payload.data?.event,
-    payload.data?.event_type,
-    payload.data?.type,
-    payload.data?.name
-  ].filter((value) => typeof value === 'string').join(' ');
-  return /mia|agent|llm|completion|response|tts|chat.?send|error|provider|quota|credit|billing/i.test(names)
-    || Boolean(payload.error || payload.data?.error);
 }
 
 export function createBotEventTracker() {

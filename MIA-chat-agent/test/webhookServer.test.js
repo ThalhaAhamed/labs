@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBotEventTracker, formatWebhookEvent, isMiaLifecycleEvent } from '../src/webhookServer.js';
+import { createBotEventTracker, formatWebhookEvent } from '../src/webhookServer.js';
 
 test('shows useful bot events and hides routine noise', () => {
   assert.equal(formatWebhookEvent({ bot_event: 'bot.inmeeting' }), '✅ Bot joined the meeting');
@@ -16,12 +16,6 @@ test('shows live transcription in the terminal', () => {
     formatWebhookEvent({ channel: { alternatives: [{ transcript: 'What is two times two?' }] } }),
     'Heard: What is two times two?'
   );
-});
-
-test('detects MIA response lifecycle and error events', () => {
-  assert.equal(isMiaLifecycleEvent({ event_type: 'agent.response.completed' }), true);
-  assert.equal(isMiaLifecycleEvent({ data: { name: 'chat_send.failed' } }), true);
-  assert.equal(isMiaLifecycleEvent({ bot_event: 'bot.inmeeting' }), false);
 });
 
 test('confirms only the matching bot terminal event', async () => {

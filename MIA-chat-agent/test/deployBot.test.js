@@ -139,7 +139,7 @@ test('deployBot attaches the MeetStream Hosted Agent', async (context) => {
   context.mock.method(globalThis, 'fetch', async (_url, options) => {
     const body = JSON.parse(options.body);
     assert.equal(body.agent_config_id, 'agent-1');
-    assert.equal(body.bot_message, undefined);
+    assert.equal(body.bot_message, "Hi, I'm MIA Chat Bot. Ask me a question or ask me to summarize the meeting.");
     assert.equal(body.socket_connection_url, undefined);
     assert.equal(body.live_audio_required, undefined);
     assert.equal(body.callback_url, 'https://example.ngrok-free.dev/webhooks/meetstream');
