@@ -39,7 +39,8 @@ test('environment validation accepts the documented values', () => {
 
 test('MIA config requires pipeline, chat output, wake words, nova-3, and focused MCP tool', () => {
   assert.equal(validateAgentConfig(validAgent).url, CANVA_MCP_URL);
-  assert.throws(() => validateAgentConfig({ ...validAgent, Agent: { ...validAgent.Agent, response_type: undefined } }), /Stage 5/);
+  assert.equal(validateAgentConfig({ ...validAgent, Agent: { ...validAgent.Agent, response_type: undefined } }).url, CANVA_MCP_URL);
+  assert.throws(() => validateAgentConfig({ ...validAgent, Agent: { ...validAgent.Agent, response_type: 'voice' } }), /Stage 5/);
   assert.throws(() => validateAgentConfig({ ...validAgent, Mode: 'realtime' }), /Stage 4/);
   assert.throws(() => validateAgentConfig({ ...validAgent, Model: { provider: 'openai', model: 'gpt-4.1' } }), /Stage 4/);
   assert.throws(() => validateAgentConfig({ ...validAgent, Model: { ...validAgent.Model, system_prompt: 'old prompt' } }), /out of date/);

@@ -71,7 +71,7 @@ export function validateAgentConfig(agent, expectedMcpUrl = CANVA_MCP_URL) {
   if (model.system_prompt?.trim() !== SYSTEM_PROMPT.trim()) {
     throw new Error('Stage 4 failed: the Hosted Agent system prompt is out of date.');
   }
-  if (config.response_type !== 'chat' || config.response_modality !== 'chat') {
+  if (config.response_modality !== 'chat' || (config.response_type != null && config.response_type !== 'chat')) {
     throw new Error('Stage 5 failed: the agent response must be chat.');
   }
   if (!wakeWord.enabled || !WAKE_WORDS.every((word) => wakeWord.words?.includes(word)) || wakeWord.timeout !== 30) {
