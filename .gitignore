@@ -1,4 +1,8 @@
-node_modules/
-.DS_Store
 .env
+*.log
+.DS_Store
+/tmp/
+
+# Exclude from repo
 blog.md
+.env
