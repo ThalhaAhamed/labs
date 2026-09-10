@@ -6,7 +6,7 @@ MeetStream uses [Anam](https://anam.ai) as the avatar provider. Avatars work in 
 
 This example is the runnable version of `MIAAvatarConfig`: it fetches a valid `avatar_id`, creates an avatar-enabled MIA agent, and deploys it into a real meeting.
 
-> **Nothing here is shared or preconfigured.** Every person running this example brings their own MeetStream API key, their own Anam avatar, and gets their own freshly created MIA agent (`agent_config_id`) tied to their own MeetStream account. There is no default agent or avatar baked into this repo — see [Setup](#setup) below to create yours.
+> **This example uses no shared or preconfigured resources.** Every user supplies their own MeetStream API key and Anam avatar, and creates their own MIA agent (`agent_config_id`) on their own MeetStream account — see [Setup](#setup) below.
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ sequenceDiagram
     end
 ```
 
-At a high level: `npm run create-agent` constructs a `MIAAvatarConfig` (model, voice, and `Avatar.avatar_id`) and registers it with MeetStream, which returns an `agent_config_id`. `npm run deploy` then instructs MeetStream to send a bot carrying that configuration into a specified meeting. From that point, MeetStream's backend manages the entire session: transcribing the meeting, running the configured model, and establishing a session with Anam to render the avatar's face onto the bot's video track. This repository's code does not process meeting audio or video streams directly at any point — it only issues configuration and deployment requests to the MeetStream API.
+At a high level: `npm run create-agent` reads [`agent.config.json`](agent.config.json), attaches an `Avatar` block built from `ANAM_AVATAR_ID` and related `.env` values, and registers the result with MeetStream, which returns an `agent_config_id`. `npm run deploy` then instructs MeetStream to deploy a bot carrying that configuration into a specified meeting. From that point, MeetStream's backend manages the entire session: transcribing the meeting, running the configured model, and establishing a session with Anam to render the avatar's face onto the bot's video track. This repository's code never processes meeting audio or video directly — it only issues configuration and deployment requests to the MeetStream API.
 
 ## Setup
 
@@ -64,13 +64,13 @@ Fill in `.env`:
 
 ### Configuring the agent
 
-Everything about the agent itself — mode (`pipeline` or `realtime`), model provider, voice, transcriber, prompts, VAD tuning — lives in [`agent.config.json`](agent.config.json), not scattered across `.env` variables. It's a plain [MIA agent config](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config), with the `Avatar` block left out — `npm run create-agent` reads this file as-is and attaches `Avatar` itself, using `ANAM_AVATAR_ID` from `.env`.
+Every aspect of the agent itself — mode (`pipeline` or `realtime`), model provider, voice, transcriber, prompts, VAD tuning — is defined in [`agent.config.json`](agent.config.json), rather than through `.env` variables. This file is a standard [MIA agent config](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config) with the `Avatar` block omitted; `npm run create-agent` reads it as-is and attaches `Avatar` separately, using `ANAM_AVATAR_ID` from `.env`.
 
-To change the agent, **replace the contents of `agent.config.json`** with any example from [MeetStream's reference docs](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config?explorer=true) — Realtime or Pipeline, OpenAI/Gemini/xAI/any supported provider — minus its `Avatar` field. Paste it in verbatim; there's no field-mapping or guessing involved, so whatever shape MeetStream's docs show for that provider is exactly what gets sent. The included `agent.config.json` is MeetStream's own Realtime + OpenAI example, included as a working default.
+To change the agent, replace the contents of `agent.config.json` with any example from [MeetStream's reference documentation](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config?explorer=true) — Realtime or Pipeline, any supported model provider — minus its `Avatar` field. The example can be used as-is: no field mapping or translation is required, so the shape MeetStream's documentation shows for a given provider is exactly what gets sent. The included `agent.config.json` uses MeetStream's own Realtime + OpenAI example as a working default.
 
-Need multiple configs around? Point at a different file per run with `MIA_AGENT_CONFIG_FILE` in `.env` (defaults to `./agent.config.json`).
+To maintain multiple configurations, set `MIA_AGENT_CONFIG_FILE` in `.env` to point at a different file for a given run (defaults to `./agent.config.json`).
 
-Only the avatar itself is `.env`-driven: `ANAM_AVATAR_ID` (required), plus optional `ANAM_AVATAR_PROVIDER` / `ANAM_AVATAR_MODEL` / `ANAM_AVATAR_NAME` — see [`.env.example`](.env.example).
+Only the avatar itself is configured through `.env`: `ANAM_AVATAR_ID` (required), plus the optional `ANAM_AVATAR_PROVIDER`, `ANAM_AVATAR_MODEL`, and `ANAM_AVATAR_NAME` — see [`.env.example`](.env.example) for details.
 
 ### Finding your avatar_id
 
@@ -82,11 +82,11 @@ Anam accounts have both `persona_id`s and `avatar_id`s — both are UUIDs, but M
 npm run list-avatars
 ```
 
-Copy an `id` from the output into `ANAM_AVATAR_ID`. If you'd rather browse faces before picking, use the [Anam Avatar Gallery](https://anam.ai/docs/personas/avatars/gallery) instead — same catalog, with previews, and no `.env` setup needed to look.
+Copy an `id` from the output into `ANAM_AVATAR_ID`. To browse available avatars visually before choosing one, use the [Anam Avatar Gallery](https://anam.ai/docs/personas/avatars/gallery) instead — it draws from the same catalog, with image previews, and requires no `.env` setup.
 
 ## Usage
 
-Run the whole flow — create **your own** avatar agent (if you haven't already) and deploy it into `MEETING_LINK`:
+Run the complete flow — create your own avatar agent, if one does not already exist, and deploy it into `MEETING_LINK`:
 
 ```bash
 npm start
@@ -99,13 +99,13 @@ npm run create-agent   # creates a new MIA agent on YOUR MeetStream account, pri
 npm run deploy          # deploys MIA_AGENT_CONFIG_ID into MEETING_LINK
 ```
 
-`npm run create-agent` creates a brand new agent every time it's run — save the printed `agent_config_id` into `MIA_AGENT_CONFIG_ID` in your `.env` so you reuse the same one instead of piling up new agents on your account.
+`npm run create-agent` creates a new agent every time it runs. Save the printed `agent_config_id` into `MIA_AGENT_CONFIG_ID` in `.env` to reuse the same agent on subsequent runs, rather than accumulating additional agents on your account.
 
 When the bot joins, the avatar renders on the bot's participant tile and lip-syncs to every TTS response.
 
 ## MIAAvatarConfig reference
 
-This is the exact `POST https://api.meetstream.ai/api/v1/mia` body [`createAvatarAgent.js`](src/createAvatarAgent.js) sends — it matches the ["Realtime - Avatar (Anam)"](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config) example in MeetStream's official API reference:
+This is the `POST https://api.meetstream.ai/api/v1/mia` body sent when using the default [`agent.config.json`](agent.config.json) — MeetStream's own ["Realtime - Avatar (Anam)"](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config) reference example, with the `Avatar` block attached by [`createAvatarAgent.js`](src/createAvatarAgent.js):
 
 ```json
 {
@@ -150,7 +150,7 @@ This is the exact `POST https://api.meetstream.ai/api/v1/mia` body [`createAvata
 }
 ```
 
-> **Note the casing:** MeetStream's official reference shows the avatar block as a top-level **`Avatar`** (capitalized) field, both in the request body and in every response payload — not `avatar`. We match that exactly. (In practice MeetStream's JSON parsing is case-insensitive on the way in, so lowercase `avatar` also works — but `Avatar` is what their docs and API responses actually use, so that's what this example sends.)
+> **Note the field casing:** MeetStream's reference shows the avatar block as a top-level, capitalized **`Avatar`** field, both in the request body and in every response payload — not `avatar`. This example follows that convention. (MeetStream's JSON parsing is case-insensitive on the way in, so a lowercase `avatar` key would also be accepted — but `Avatar` is what MeetStream's documentation and API responses use, so that is what this example sends.)
 
 | Setting | Required | Description |
 | --- | --- | --- |
@@ -160,19 +160,19 @@ This is the exact `POST https://api.meetstream.ai/api/v1/mia` body [`createAvata
 | `Avatar.avatar_model` | No | Optional Anam `avatarModel` override |
 | `Avatar.name` | No | Optional persona display name |
 
-> "Required: No" above describes the general API — if you omit `Avatar.enabled` entirely in a raw request, it defaults to `false` (no avatar). This example is specifically about *having* an avatar, so [`createAvatarAgent.js`](src/createAvatarAgent.js) always sends `enabled: true` explicitly; it's never omitted here.
+> The "Required: No" entries above describe the general API: omitting `Avatar.enabled` in a raw request causes it to default to `false` (no avatar). Since the purpose of this example is to enable an avatar, [`createAvatarAgent.js`](src/createAvatarAgent.js) always sets `enabled: true` explicitly; it is never omitted here.
 
 ## Troubleshooting
 
-**Bot joins the meeting fine, `video_required: true` is set, the agent config's `Avatar.enabled` is `true` with a valid `avatar_id` — but no avatar ever shows up, and there's no error at all:**
+**The bot joins the meeting normally, `video_required: true` is set, and the agent config's `Avatar.enabled` is `true` with a valid `avatar_id` — but no avatar appears, and no error is reported:**
 
-This is almost certainly a **stale or wrong Anam key saved in MeetStream Dashboard → Integrations → Avatar → Anam.** That dashboard key is what MeetStream's backend actually uses server-side to open the Anam avatar session during the live call — it's completely separate from `ANAM_API_KEY` in your local `.env` (which is only used by this repo's own `list-avatars` script).
+This is almost always caused by a **stale or incorrect Anam key saved in MeetStream Dashboard → Integrations → Avatar → Anam.** That dashboard key is what MeetStream's backend uses server-side to open the Anam avatar session during a live call — it is entirely separate from `ANAM_API_KEY` in your local `.env`, which is used only by this repository's `list-avatars` script.
 
-Symptoms that point here specifically: `GET /api/v1/bots/{bot_id}` shows `InMeeting: true` and `Recording: true`, but `VideoProcessing` stays `false` forever with no timestamp and no message — across every model provider and avatar_id you try. If your Anam key works fine when called directly (`GET https://api.anam.ai/v1/avatars`, or creating a session token via `POST https://api.anam.ai/v1/auth/session-token`), but avatars still never render inside a MeetStream call, re-paste your current Anam key into the MeetStream dashboard integration and redeploy. That resolved it for us after a full afternoon of debugging every other variable (model provider, avatar_id, agent config) with no luck.
+Symptoms that indicate this specifically: `GET /api/v1/bots/{bot_id}` shows `InMeeting: true` and `Recording: true`, but `VideoProcessing` remains `false` indefinitely, with no timestamp and no error message — regardless of model provider or `avatar_id`. If the Anam key works correctly when called directly (`GET https://api.anam.ai/v1/avatars`, or by creating a session token via `POST https://api.anam.ai/v1/auth/session-token`), but avatars still do not render within a MeetStream call, re-save the current Anam key in the MeetStream dashboard integration and redeploy. This was confirmed to resolve the issue during development, after ruling out every other variable (model provider, `avatar_id`, agent configuration).
 
-**Avatar doesn't appear, or the session fails to start (other causes):**
+**Avatar does not appear, or the session fails to start (other causes):**
 
-- **Wrong ID type** — MeetStream needs `avatar_id`, not `persona_id`. Grab one from the [Anam Avatar Gallery](https://anam.ai/docs/personas/avatars/gallery), or via `GET https://api.anam.ai/v1/avatars` (`npm run list-avatars`).
+- **Wrong ID type** — MeetStream needs `avatar_id`, not `persona_id`. Obtain one from the [Anam Avatar Gallery](https://anam.ai/docs/personas/avatars/gallery), or via `GET https://api.anam.ai/v1/avatars` (`npm run list-avatars`).
 - **Anam API key rejected (401/403)** — the `ANAM_API_KEY` stored under MeetStream Integrations was rotated or is invalid. Update it in the dashboard.
 - **Concurrent session limit** — Anam caps concurrent sessions per account and has no kill-session API. Orphaned sessions auto-expire at `maxSessionLengthSeconds` (~180s default). MeetStream's error message lists the open sessions and their expiry ETA.
 
@@ -193,7 +193,7 @@ mia-avatar-agent/
 │   ├── createAvatarAgent.js   # reads agent.config.json, attaches Avatar, POST /api/v1/mia
 │   ├── deployBot.js           # POST https://api.meetstream.ai/api/v1/bots/create_bot
 │   └── index.js               # end-to-end: create agent (if needed) + deploy
-├── agent.config.json          # the agent itself -- swap in any MeetStream reference example
+├── agent.config.json          # the agent itself -- replace with any MeetStream reference example
 ├── .env.example
 └── package.json
 ```
