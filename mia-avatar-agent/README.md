@@ -10,9 +10,38 @@ This example is the runnable version of `MIAAvatarConfig`: it fetches a valid `a
 
 ## Prerequisites
 
+- [Node.js](https://nodejs.org/) 18 or newer (tested on Node 22)
 - A MeetStream API key
 - An [Anam](https://anam.ai) account with an API key
 - Your Anam API key saved in the MeetStream dashboard under **Integrations → Avatar → Anam**
+
+## How it works
+
+This example only ever talks to MeetStream's API — it never talks to Anam directly to render anything (the one exception is `list-avatars`, a convenience lookup). MeetStream orchestrates the model, the meeting platform, and Anam on your behalf:
+
+```mermaid
+sequenceDiagram
+    participant You as This example
+    participant MS as MeetStream API
+    participant Meet as Google Meet / Zoom / Teams
+    participant LLM as Model (OpenAI / Gemini / ...)
+    participant Anam as Anam (avatar renderer)
+
+    You->>MS: POST /api/v1/mia (MIAAvatarConfig)
+    MS-->>You: agent_config_id
+    You->>MS: POST /api/v1/bots/create_bot (agent_config_id, meeting_link)
+    MS->>Meet: Bot joins the call
+    loop Live meeting
+        Meet->>MS: Audio from participants
+        MS->>LLM: Speech -> response
+        LLM-->>MS: Reply (text/audio)
+        MS->>Anam: Open avatar session, stream reply audio
+        Anam-->>MS: Lip-synced avatar video
+        MS->>Meet: Bot's video tile + voice
+    end
+```
+
+Concretely: `npm run create-agent` builds a `MIAAvatarConfig` (model + voice + `Avatar.avatar_id`) and registers it with MeetStream. `npm run deploy` then tells MeetStream to send a bot carrying that config into a specific meeting. From there, MeetStream's backend handles everything live — transcribing the room, running the model, and opening a session with Anam to render the avatar's face on the bot's video track. This repo's code never touches meeting audio/video streams directly.
 
 ## Setup
 
@@ -140,6 +169,19 @@ Symptoms that point here specifically: `GET /api/v1/bots/{bot_id}` shows `InMeet
 - **Wrong ID type** — MeetStream needs `avatar_id`, not `persona_id`. Grab one from the [Anam Avatar Gallery](https://anam.ai/docs/personas/avatars/gallery), or via `GET https://api.anam.ai/v1/avatars` (`npm run list-avatars`).
 - **Anam API key rejected (401/403)** — the `ANAM_API_KEY` stored under MeetStream Integrations was rotated or is invalid. Update it in the dashboard.
 - **Concurrent session limit** — Anam caps concurrent sessions per account and has no kill-session API. Orphaned sessions auto-expire at `maxSessionLengthSeconds` (~180s default). MeetStream's error message lists the open sessions and their expiry ETA.
+
+## Demo
+
+We ran this end to end in a live Google Meet call: `npm start` creates a realtime MIA agent (tested with both OpenAI `gpt-realtime-mini` and Google `gemini-2.5-flash-native-audio-preview-12-2025` as the model), deploys it as a bot, and once admitted from the waiting room the bot's video tile shows the Anam avatar lip-syncing to its spoken responses.
+
+<!-- TODO: add a screenshot or short screen recording of the avatar live in a Meet call -->
+
+## Dependencies
+
+- **Node.js 18+** (tested on Node 22) — uses native `fetch`, no HTTP client dependency
+- **[`dotenv`](https://www.npmjs.com/package/dotenv) `^16.4.5`** — the only runtime dependency, loads `.env`; exact resolved version is pinned in `package-lock.json`
+
+No other dependencies — the MeetStream/Anam API calls are plain `fetch` requests in [`src/http.js`](src/http.js).
 
 ## Files
 
