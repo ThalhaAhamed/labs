@@ -6,6 +6,11 @@ node_modules/
 .env.local
 .env.*.local
 
+# Personal agent config overrides (the tracked agent.config.json is the
+# shared default; anyone can point MIA_AGENT_CONFIG_FILE at their own)
+agent.config.local.json
+agent.config.*.local.json
+
 # Logs
 *.log
 npm-debug.log*

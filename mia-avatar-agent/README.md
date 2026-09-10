@@ -64,7 +64,13 @@ Fill in `.env`:
 
 ### Configuring the agent
 
-`npm run create-agent` doesn't have to build the one fixed agent shown above — the model, voice, prompt, and avatar details are all optional `.env` overrides (see the bottom of [`.env.example`](.env.example) for the full list, e.g. `MIA_MODEL_PROVIDER`, `MIA_MODEL_NAME`, `MIA_MODEL_VOICE`, `MIA_SYSTEM_PROMPT`, `MIA_FIRST_MESSAGE`, `ANAM_AVATAR_MODEL`, `ANAM_AVATAR_NAME`). Leave them blank to get the defaults matching MeetStream's own reference example, or set any of them to build a different agent — e.g. swap `MIA_MODEL_PROVIDER=google` / `MIA_MODEL_NAME=gemini-2.5-flash-native-audio-preview-12-2025` / `MIA_MODEL_VOICE=Puck` to use Gemini instead of OpenAI. For anything beyond that (transcriber, tools, VAD tuning, pipeline mode instead of realtime), edit the request body in [`src/createAvatarAgent.js`](src/createAvatarAgent.js) directly — it's a plain object matching [MeetStream's `create-agent-config` reference](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config).
+Everything about the agent itself — mode (`pipeline` or `realtime`), model provider, voice, transcriber, prompts, VAD tuning — lives in [`agent.config.json`](agent.config.json), not scattered across `.env` variables. It's a plain [MIA agent config](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config), with the `Avatar` block left out — `npm run create-agent` reads this file as-is and attaches `Avatar` itself, using `ANAM_AVATAR_ID` from `.env`.
+
+To change the agent, **replace the contents of `agent.config.json`** with any example from [MeetStream's reference docs](https://docs.meetstream.ai/api-reference/api-endpoints/mia/create-agent-config?explorer=true) — Realtime or Pipeline, OpenAI/Gemini/xAI/any supported provider — minus its `Avatar` field. Paste it in verbatim; there's no field-mapping or guessing involved, so whatever shape MeetStream's docs show for that provider is exactly what gets sent. The included `agent.config.json` is MeetStream's own Realtime + OpenAI example, included as a working default.
+
+Need multiple configs around? Point at a different file per run with `MIA_AGENT_CONFIG_FILE` in `.env` (defaults to `./agent.config.json`).
+
+Only the avatar itself is `.env`-driven: `ANAM_AVATAR_ID` (required), plus optional `ANAM_AVATAR_PROVIDER` / `ANAM_AVATAR_MODEL` / `ANAM_AVATAR_NAME` — see [`.env.example`](.env.example).
 
 ### Finding your avatar_id
 
@@ -184,9 +190,10 @@ mia-avatar-agent/
 ├── src/
 │   ├── http.js                # tiny fetch wrapper + env helper
 │   ├── listAnamAvatars.js     # GET https://api.anam.ai/v1/avatars
-│   ├── createAvatarAgent.js   # POST https://api.meetstream.ai/api/v1/mia
+│   ├── createAvatarAgent.js   # reads agent.config.json, attaches Avatar, POST /api/v1/mia
 │   ├── deployBot.js           # POST https://api.meetstream.ai/api/v1/bots/create_bot
 │   └── index.js               # end-to-end: create agent (if needed) + deploy
+├── agent.config.json          # the agent itself -- swap in any MeetStream reference example
 ├── .env.example
 └── package.json
 ```
