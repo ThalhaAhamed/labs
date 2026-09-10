@@ -170,12 +170,6 @@ Symptoms that point here specifically: `GET /api/v1/bots/{bot_id}` shows `InMeet
 - **Anam API key rejected (401/403)** — the `ANAM_API_KEY` stored under MeetStream Integrations was rotated or is invalid. Update it in the dashboard.
 - **Concurrent session limit** — Anam caps concurrent sessions per account and has no kill-session API. Orphaned sessions auto-expire at `maxSessionLengthSeconds` (~180s default). MeetStream's error message lists the open sessions and their expiry ETA.
 
-## Demo
-
-We ran this end to end in a live Google Meet call: `npm start` creates a realtime MIA agent (tested with both OpenAI `gpt-realtime-mini` and Google `gemini-2.5-flash-native-audio-preview-12-2025` as the model), deploys it as a bot, and once admitted from the waiting room the bot's video tile shows the Anam avatar lip-syncing to its spoken responses.
-
-<!-- TODO: add a screenshot or short screen recording of the avatar live in a Meet call -->
-
 ## Dependencies
 
 - **Node.js 18+** (tested on Node 22) — uses native `fetch`, no HTTP client dependency
