@@ -29,4 +29,4 @@ Get an avatar into a live meeting in under 5 minutes.
    npm start
    ```
 
-The bot joins the call, and the avatar appears on its video tile talking within a few seconds.
+6. **Admit the bot** — it'll sit in the meeting's waiting room until a host lets it in. Once admitted, its video tile shows the Anam avatar within a few seconds.
