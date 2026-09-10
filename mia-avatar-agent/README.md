@@ -17,7 +17,7 @@ This example is the runnable version of `MIAAvatarConfig`: it fetches a valid `a
 
 ## How it works
 
-This example only ever talks to MeetStream's API — it never talks to Anam directly to render anything (the one exception is `list-avatars`, a convenience lookup). MeetStream orchestrates the model, the meeting platform, and Anam on your behalf:
+This example communicates exclusively with the MeetStream API; it does not integrate with Anam directly to render media (the sole exception being `list-avatars`, a client-side convenience lookup). MeetStream is responsible for orchestrating the model, the meeting platform, and Anam on your behalf:
 
 ```mermaid
 sequenceDiagram
@@ -41,7 +41,7 @@ sequenceDiagram
     end
 ```
 
-Concretely: `npm run create-agent` builds a `MIAAvatarConfig` (model + voice + `Avatar.avatar_id`) and registers it with MeetStream. `npm run deploy` then tells MeetStream to send a bot carrying that config into a specific meeting. From there, MeetStream's backend handles everything live — transcribing the room, running the model, and opening a session with Anam to render the avatar's face on the bot's video track. This repo's code never touches meeting audio/video streams directly.
+At a high level: `npm run create-agent` constructs a `MIAAvatarConfig` (model, voice, and `Avatar.avatar_id`) and registers it with MeetStream, which returns an `agent_config_id`. `npm run deploy` then instructs MeetStream to send a bot carrying that configuration into a specified meeting. From that point, MeetStream's backend manages the entire session: transcribing the meeting, running the configured model, and establishing a session with Anam to render the avatar's face onto the bot's video track. This repository's code does not process meeting audio or video streams directly at any point — it only issues configuration and deployment requests to the MeetStream API.
 
 ## Setup
 
