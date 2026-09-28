@@ -2,21 +2,22 @@
 
 This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
 
-Latest run, [results/2026-09-28T16-57-03Z](results/2026-09-28T16-57-03Z/results.md): Google Meet, the 191 s sample clip (420 reference words), one recording sent to every provider.
+Latest run, [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.md): Google Meet, the 191 s sample clip (420 reference words). One recording was sent to all five providers through the same re-transcribe request, and each was timed from its own request.
 
 | Provider | WER | Sub / Del / Ins | Turnaround | × real time |
 |---|---:|---:|---:|---:|
-| meetstream | 2.1% | 7 / 2 / 0 | 13.7 s | 0.07× |
-| jigsawstack | 2.1% | 7 / 2 / 0 | 7.9 s | 0.04× |
-| assemblyai | 2.9% | 8 / 2 / 2 | – | – |
-| deepgram | 3.6% | 11 / 4 / 0 | 7.9 s | 0.04× |
-| sarvam | 5.0% | 16 / 5 / 0 | 19.8 s | 0.10× |
+| meetstream | 2.1% | 7 / 2 / 0 | 8.6 s | 0.05× |
+| jigsawstack | 2.1% | 7 / 2 / 0 | 7.5 s | 0.04× |
+| assemblyai | 2.9% | 9 / 2 / 1 | 14.3 s | 0.07× |
+| deepgram | 3.8% | 12 / 4 / 0 | 8.6 s | 0.04× |
+| sarvam | 5.0% | 16 / 5 / 0 | 20.1 s | 0.10× |
 
 How to read this:
 
 - **The sample is small.** One word is 0.24 points of WER, so treat gaps under about 2 points as ties.
 - **Turnaround is one sample per provider**, polled every 5 s.
-- **AssemblyAI has no turnaround.** MeetStream's re-transcribe endpoint refused it on 2026-09-28, so it was scored from the live transcript the recording bot made (`--live-provider assemblyai`).
+- **JigsawStack was re-run.** Its first attempt failed inside MeetStream before reaching JigsawStack ("Retranscription failed before provider submission"). It was re-run on the same recording a few minutes later, so it wasn't under the same load as the others. `results.md` records both attempts.
+- **The independent scorer agrees.** `scripts/score_jiwer.py` gives the same ranking, with every provider within 0.3 points.
 - **Every provider's raw transcript is in the results folder.** To re-score it yourself, see [Reproducing a result](METHODOLOGY.md#reproducing-a-result).
 
 **Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.
@@ -74,7 +75,8 @@ npm run benchmark -- --providers meetstream,deepgram
 npm run benchmark -- --poll 2                 # finer turnaround resolution
 npm run benchmark -- --reference my-ref.txt   # verbatim transcript of what was said
 npm run record -- --audio call.m4a --reference call.txt   # your own audio (any format ffmpeg reads)
-npm run record -- --live-provider assemblyai  # transcribe live with a provider the re-transcribe endpoint refuses (AssemblyAI, as of 2026-09-28)
+npm run record -- --live-provider assemblyai  # fallback: transcribe live with a provider the re-transcribe endpoint refuses
+npm run benchmark -- --bot-id <id> --providers jigsawstack --append results/<run>   # re-run one provider into an existing run
 npm run score -- results/<run>                # re-score a finished run, no API key needed
 ```
 

@@ -26,8 +26,19 @@ function score(runDir) {
   fs.writeFileSync(path.join(runDir, "reference.normalized.txt"), reference + "\n");
   const clipSeconds = run.recording?.clip?.seconds ?? null;
 
+  // Attempts that were replaced (resubmitted or re-run with --append) are not
+  // scored, but a reader should be told they happened and why.
+  const replaced = new Map();
+  for (const job of run.jobs.filter((j) => j.superseded && j.status !== "Success")) {
+    if (!replaced.has(job.provider)) replaced.set(job.provider, []);
+    replaced.get(job.provider).push(`an earlier attempt ${job.status === "NotRun" ? "was refused" : "failed"} (${job.error ?? job.status}) and was replaced`);
+  }
+
   const byProvider = new Map();
   for (const job of run.jobs) {
+    // A failed attempt that was resubmitted, or jobs replaced by --append,
+    // are kept in run.json for the record but are not what the table scores.
+    if (job.superseded) continue;
     if (!byProvider.has(job.provider)) byProvider.set(job.provider, []);
     byProvider.get(job.provider).push(job);
   }
@@ -62,7 +73,7 @@ function score(runDir) {
       rounds: jobs.length,
       succeeded: scored.length,
       failed_rounds: failures.map((j) => ({ round: j.round, status: j.status, error: j.error ?? null })),
-      notes: jobs.filter((j) => j.note).map((j) => j.note),
+      notes: [...(replaced.get(provider) ?? []), ...jobs.filter((j) => j.note).map((j) => j.note)],
       wer: (sum("substitutions") + sum("deletions") + sum("insertions")) / refWords,
       wer_per_round: scored.map((s) => +s.result.wer.toFixed(4)),
       substitutions: sum("substitutions"),

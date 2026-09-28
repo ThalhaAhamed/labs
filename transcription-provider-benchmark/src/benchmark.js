@@ -144,7 +144,16 @@ async function pollUntilDone(botId, jobs, pollMs, timeoutMs) {
   }
 }
 
-async function benchmark({ botId, referencePath, providers, rounds, pollSeconds, timeoutMinutes }) {
+/**
+ * A job that fails inside MeetStream before the provider ever sees it (e.g.
+ * "Retranscription failed before provider submission") says nothing about the
+ * provider, so it is resubmitted once. Both attempts stay in run.json.
+ */
+function failedBeforeProvider(job) {
+  return job.status === "Failed" && /before provider submission/i.test(job.error ?? "");
+}
+
+async function benchmark({ botId, referencePath, providers, rounds, pollSeconds, timeoutMinutes, appendTo }) {
   const recordingPath = path.join("recordings", `${botId}.json`);
   const recording = fs.existsSync(recordingPath) ? JSON.parse(fs.readFileSync(recordingPath, "utf8")) : null;
   referencePath = referencePath ?? recording?.reference?.path;
@@ -152,10 +161,16 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
     throw new Error("No reference transcript. Pass --reference <file> (the words actually spoken in the recording).");
   }
 
-  const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "Z";
-  const runDir = path.join("results", runId);
+  // --append adds providers to an existing run of the same recording (e.g. to
+  // re-run one that failed) instead of starting a new results folder.
+  const existing = appendTo ? JSON.parse(fs.readFileSync(path.join(appendTo, "run.json"), "utf8")) : null;
+  if (existing && existing.bot.id !== botId) {
+    throw new Error(`${appendTo} is a run of bot ${existing.bot.id}, not ${botId}`);
+  }
+  const runId = existing?.run_id ?? new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "Z";
+  const runDir = appendTo ?? path.join("results", runId);
   fs.mkdirSync(path.join(runDir, "transcripts"), { recursive: true });
-  fs.copyFileSync(referencePath, path.join(runDir, "reference.txt"));
+  if (!existing) fs.copyFileSync(referencePath, path.join(runDir, "reference.txt"));
 
   console.log(`  Bot        ${botId}`);
   console.log(`  Reference  ${referencePath}`);
@@ -175,6 +190,19 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
       console.log(`   ${job.provider.padEnd(12)} not run  ${job.error}`);
     }
     await pollUntilDone(botId, batch, pollSeconds * 1000, timeoutMinutes * 60_000);
+
+    const retry = batch.filter(failedBeforeProvider);
+    if (retry.length) {
+      console.log(`   resubmitting ${retry.map((j) => j.provider).join(", ")} (failed inside MeetStream before reaching the provider)`);
+      const again = await Promise.all(retry.map((j) => submit(botId, j.provider, round)));
+      await pollUntilDone(botId, again, pollSeconds * 1000, timeoutMinutes * 60_000);
+      for (const j of again) {
+        j.attempt = 2;
+        j.note = "first attempt failed inside MeetStream before reaching the provider and was resubmitted once; timed from the resubmission";
+      }
+      for (const j of retry) j.superseded = true;
+      batch.push(...again);
+    }
     // A provider that ran (or was refused as already run) is finished with
     // this recording; a later round would only be refused.
     for (const job of batch) if (job.status === "Success" || alreadyRun(job)) done.add(job.provider);
@@ -186,9 +214,13 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
     }
 
     for (const job of batch.filter((j) => j.status === "Success")) {
+      if (existing) {
+        job.appended = true;
+        job.note = [job.note, `submitted on its own after the rest of this run (${existing.started_at}), not alongside the other providers`].filter(Boolean).join("; ");
+      }
       try {
         const data = await api.getTranscript(job.transcript_id);
-        job.transcript_file = `transcripts/${job.provider}.r${round}.json`;
+        job.transcript_file = `transcripts/${job.provider}.r${round}${existing ? ".appended" : job.attempt ? `.a${job.attempt}` : ""}.json`;
         fs.writeFileSync(path.join(runDir, job.transcript_file), JSON.stringify(data, null, 2));
       } catch (err) {
         job.status = "FetchFailed";
@@ -199,7 +231,13 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
     console.log("");
   }
 
-  const run = {
+  const newJobs = jobs.map(({ _t0, ...j }) => j);
+  const run = existing ? {
+    ...existing,
+    providers: { ...existing.providers, ...Object.fromEntries(providers.map((p) => [p, PROVIDERS[p]])) },
+    // An appended provider replaces its earlier jobs in the table; they stay on record here.
+    jobs: [...existing.jobs.map((j) => (providers.includes(j.provider) ? { ...j, superseded: true } : j)), ...newJobs],
+  } : {
     run_id: runId,
     harness: "meetstream-ai/labs transcription-provider-benchmark",
     started_at: jobs[0]?.submitted_at,
@@ -209,7 +247,7 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
     reference: { file: "reference.txt", source: referencePath, sha256: sha256File(referencePath) },
     providers: Object.fromEntries(providers.map((p) => [p, PROVIDERS[p]])),
     rounds,
-    jobs: jobs.map(({ _t0, ...j }) => j),
+    jobs: newJobs,
   };
   fs.writeFileSync(path.join(runDir, "run.json"), JSON.stringify(run, null, 2) + "\n");
 

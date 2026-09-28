@@ -28,6 +28,7 @@ async function main() {
       audio: { type: "string", default: "sample/clip.wav" },
       reference: { type: "string" },
       "bot-id": { type: "string" },
+      append: { type: "string" },
       "live-provider": { type: "string" },
       providers: { type: "string" },
       rounds: { type: "string", default: "1" },
@@ -63,6 +64,7 @@ async function main() {
         rounds: parseInt(values.rounds, 10),
         pollSeconds: parseFloat(values.poll),
         timeoutMinutes: parseFloat(values.timeout),
+        appendTo: values.append,
       });
       break;
     }

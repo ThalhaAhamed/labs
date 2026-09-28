@@ -1,6 +1,6 @@
 {
-  "run_id": "2026-09-28T16-57-03Z",
-  "bot_id": "644b1e47-5f57-4f34-a1af-70ab153e9552",
+  "run_id": "2026-09-28T18-08-58Z",
+  "bot_id": "88ba4098-3ab4-4c0c-b56c-3e5416f0f782",
   "reference_words": 420,
   "clip_seconds": 191.435,
   "poll_seconds": 5,
@@ -24,16 +24,16 @@
       "outside_clip_words": 0,
       "clip_found": true,
       "wer_untrimmed": 0.02142857142857143,
-      "turnaround_median_s": 13.69,
-      "turnaround_min_s": 13.69,
-      "turnaround_max_s": 13.69,
-      "real_time_factor": 0.07151252383315486,
+      "turnaround_median_s": 8.64,
+      "turnaround_min_s": 8.64,
+      "turnaround_max_s": 8.64,
+      "real_time_factor": 0.045132812704050985,
       "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "S",
           "ref": "linnell's",
-          "hyp": "l'enel's"
+          "hyp": "l'anel's"
         },
         {
           "op": "D",
@@ -89,7 +89,10 @@
       "rounds": 1,
       "succeeded": 1,
       "failed_rounds": [],
-      "notes": [],
+      "notes": [
+        "an earlier attempt failed (Retranscription failed before provider submission) and was replaced",
+        "submitted on its own after the rest of this run (2026-09-28T18:08:58.993Z), not alongside the other providers"
+      ],
       "wer": 0.02142857142857143,
       "wer_per_round": [
         0.0214
@@ -101,16 +104,16 @@
       "outside_clip_words": 0,
       "clip_found": true,
       "wer_untrimmed": 0.02142857142857143,
-      "turnaround_median_s": 7.88,
-      "turnaround_min_s": 7.88,
-      "turnaround_max_s": 7.88,
-      "real_time_factor": 0.0411627967717502,
+      "turnaround_median_s": 7.46,
+      "turnaround_min_s": 7.46,
+      "turnaround_max_s": 7.46,
+      "real_time_factor": 0.03896884059863661,
       "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "S",
           "ref": "linnell's",
-          "hyp": "l'enel's"
+          "hyp": "l'anel's"
         },
         {
           "op": "D",
@@ -166,26 +169,29 @@
       "rounds": 1,
       "succeeded": 1,
       "failed_rounds": [],
-      "notes": [
-        "the transcribe endpoint refused it ({\"error\":\"No API key configured for provider 'assemblyai'. Please add your assemblyai API key in the integrations settings.\"}); scored the earlier transcript 7e1df053-3d67-495e-8d7f-47da0284b036 from 2026-09-28T16:53:02Z, turnaround not measured"
-      ],
+      "notes": [],
       "wer": 0.02857142857142857,
       "wer_per_round": [
         0.0286
       ],
-      "substitutions": 8,
+      "substitutions": 9,
       "deletions": 2,
-      "insertions": 2,
+      "insertions": 1,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
       "wer_untrimmed": 0.02857142857142857,
-      "turnaround_median_s": null,
-      "turnaround_min_s": null,
-      "turnaround_max_s": null,
-      "real_time_factor": null,
+      "turnaround_median_s": 14.25,
+      "turnaround_min_s": 14.25,
+      "turnaround_max_s": 14.25,
+      "real_time_factor": 0.07443779873063965,
       "post_call_turnaround_s": null,
       "errors": [
+        {
+          "op": "I",
+          "ref": null,
+          "hyp": "rather"
+        },
         {
           "op": "D",
           "ref": "at",
@@ -199,12 +205,7 @@
         {
           "op": "S",
           "ref": "birket",
-          "hyp": "burke"
-        },
-        {
-          "op": "I",
-          "ref": null,
-          "hyp": "dare"
+          "hyp": "burkett"
         },
         {
           "op": "S",
@@ -224,12 +225,7 @@
         {
           "op": "S",
           "ref": "mantel",
-          "hyp": "mental"
-        },
-        {
-          "op": "I",
-          "ref": null,
-          "hyp": "he"
+          "hyp": "mantle"
         },
         {
           "op": "S",
@@ -245,6 +241,11 @@
           "op": "S",
           "ref": "while",
           "hyp": "all"
+        },
+        {
+          "op": "S",
+          "ref": "wished",
+          "hyp": "wish"
         }
       ],
       "config": {
@@ -263,21 +264,21 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [],
-      "wer": 0.03571428571428571,
+      "wer": 0.0380952380952381,
       "wer_per_round": [
-        0.0357
+        0.0381
       ],
-      "substitutions": 11,
+      "substitutions": 12,
       "deletions": 4,
       "insertions": 0,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.03571428571428571,
-      "turnaround_median_s": 7.88,
-      "turnaround_min_s": 7.88,
-      "turnaround_max_s": 7.88,
-      "real_time_factor": 0.0411627967717502,
+      "wer_untrimmed": 0.0380952380952381,
+      "turnaround_median_s": 8.63,
+      "turnaround_min_s": 8.63,
+      "turnaround_max_s": 8.63,
+      "real_time_factor": 0.04508057565231019,
       "post_call_turnaround_s": null,
       "errors": [
         {
@@ -288,7 +289,7 @@
         {
           "op": "S",
           "ref": "guards",
-          "hyp": "upguards"
+          "hyp": "upgard's"
         },
         {
           "op": "D",
@@ -312,8 +313,8 @@
         },
         {
           "op": "S",
-          "ref": "carker",
-          "hyp": "parker"
+          "ref": "on",
+          "hyp": "in"
         },
         {
           "op": "S",
@@ -354,6 +355,11 @@
           "op": "S",
           "ref": "a",
           "hyp": "ma"
+        },
+        {
+          "op": "S",
+          "ref": "a",
+          "hyp": "the"
         }
       ],
       "config": {
@@ -381,12 +387,17 @@
       "outside_clip_words": 0,
       "clip_found": true,
       "wer_untrimmed": 0.05,
-      "turnaround_median_s": 19.76,
-      "turnaround_min_s": 19.76,
-      "turnaround_max_s": 19.76,
-      "real_time_factor": 0.10322041423982031,
+      "turnaround_median_s": 20.05,
+      "turnaround_min_s": 20.05,
+      "turnaround_max_s": 20.05,
+      "real_time_factor": 0.1047352887403035,
       "post_call_turnaround_s": null,
       "errors": [
+        {
+          "op": "S",
+          "ref": "apostle",
+          "hyp": "gospel"
+        },
         {
           "op": "S",
           "ref": "leighton's",
@@ -420,17 +431,12 @@
         {
           "op": "S",
           "ref": "jingo",
-          "hyp": "jingle"
+          "hyp": "gingo"
         },
         {
           "op": "S",
           "ref": "birket",
           "hyp": "burkett"
-        },
-        {
-          "op": "S",
-          "ref": "carker",
-          "hyp": "karkar"
         },
         {
           "op": "S",

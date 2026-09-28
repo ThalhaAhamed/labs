@@ -202,3 +202,110 @@ test("a provider the transcribe endpoint refuses is scored from its live run, wi
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a job that fails inside MeetStream before reaching the provider is resubmitted once", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  const jobs = new Map();
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => {
+    const id = `t-${jobs.size}`;
+    jobs.set(id, jobs.size === 0 ? "Failed" : "Success");
+    return { transcript_id: id };
+  };
+  api.listTranscriptions = async () => [...jobs].map(([id, status]) => ({
+    transcript_id: id, provider: "deepgram", status,
+    ...(status === "Failed" ? { error: "Retranscription failed before provider submission" } : {}),
+  }));
+  api.getTranscript = async () => [{ start_time: 0, transcript: OUTPUTS.deepgram }];
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-4", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
+    assert.equal(run.jobs.length, 2);
+    assert.equal(run.jobs[0].superseded, true);
+    assert.equal(run.jobs[1].attempt, 2);
+    const { providers: [row] } = JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8"));
+    assert.equal(row.ran, true);
+    assert.equal(row.failed_rounds.length, 0);
+    assert.equal(row.wer, 1 / 9);
+    assert.match(row.notes.join(" "), /earlier attempt failed \(Retranscription failed before provider submission\) and was replaced/);
+    assert.match(row.notes.join(" "), /resubmitted once/);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--append adds a provider to an existing run and replaces its failed job there", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  api.getBotStatus = async () => "Done";
+  let n = 0;
+  const status = {};
+  api.transcribe = async (_bot, provider) => {
+    const name = Object.keys(provider)[0];
+    const id = `t-${n++}`;
+    status[id] = { name, status: name === "jigsawstack" && n === 1 ? "Failed" : "Success" };
+    return { transcript_id: id };
+  };
+  api.listTranscriptions = async () => Object.entries(status).map(([id, s]) => ({ transcript_id: id, provider: s.name, status: s.status, error: s.status === "Failed" ? "some other MeetStream failure" : undefined }));
+  api.getTranscript = async (id) => [{ start_time: 0, transcript: OUTPUTS[status[id].name === "jigsawstack" ? "meetstream" : status[id].name] }];
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-5", referencePath: "reference.txt", providers: ["jigsawstack", "deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+      let r = JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8"));
+      assert.equal(r.providers.find((p) => p.provider === "jigsawstack").ran, false);
+      const again = await benchmark({ botId: "bot-5", referencePath: "reference.txt", providers: ["jigsawstack"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005, appendTo: runDir });
+      assert.equal(again, runDir);
+    } finally {
+      console.log = log;
+    }
+    const r = JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8"));
+    const by = Object.fromEntries(r.providers.map((p) => [p.provider, p]));
+    assert.equal(by.jigsawstack.ran, true);
+    assert.equal(by.jigsawstack.wer, 0);
+    assert.match(by.jigsawstack.notes.join(" "), /submitted on its own after the rest of this run/);
+    assert.equal(by.deepgram.ran, true); // untouched by the append
+    const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
+    assert.equal(run.jobs.filter((j) => j.provider === "jigsawstack").length, 2);
+    assert.equal(run.jobs.find((j) => j.provider === "jigsawstack" && j.status === "Failed").superseded, true);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--append refuses a run of a different recording", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  fs.mkdirSync("results/r1", { recursive: true });
+  fs.writeFileSync("results/r1/run.json", JSON.stringify({ run_id: "r1", bot: { id: "other-bot" }, jobs: [] }));
+  try {
+    const { benchmark } = require("../src/benchmark");
+    await assert.rejects(
+      benchmark({ botId: "bot-6", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005, appendTo: "results/r1" }),
+      /is a run of bot other-bot, not bot-6/
+    );
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
