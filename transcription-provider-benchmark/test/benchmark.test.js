@@ -156,3 +156,49 @@ test("a bot that already spent its one meetstream run is scored from that run's 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a provider the transcribe endpoint refuses is scored from its live run, with the post-call timing marked", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  fs.mkdirSync("recordings");
+  fs.writeFileSync("recordings/bot-3.json", JSON.stringify({
+    bot_id: "bot-3", meeting_platform: "meet.google.com", live_provider: "assemblyai",
+    live_transcript: { provider: "assemblyai", transcript_id: "live-aai", status: "Success", turnaround_after_leaving_s: 42.5 },
+    clip: { path: "sample/clip.wav", sha256: "0".repeat(64), seconds: 191.4 },
+    reference: { path: "reference.txt", sha256: "0".repeat(64) },
+  }));
+
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => {
+    const err = new Error("Request failed");
+    err.response = { status: 400, data: { error: "No API key configured for provider 'assemblyai'." } };
+    throw err;
+  };
+  api.listTranscriptions = async () => [{ transcript_id: "live-aai", provider: "assemblyai", status: "Success", created_at: "2026-09-28T16:53:02Z" }];
+  api.getTranscript = async () => [{ start_time: 0, transcript: OUTPUTS.assemblyai }];
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-3", providers: ["assemblyai"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const { providers: [row] } = JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8"));
+    assert.equal(row.ran, true);
+    assert.equal(row.turnaround_median_s, null);
+    assert.equal(row.post_call_turnaround_s, 42.5);
+    assert.match(row.notes[0], /transcribe endpoint refused it.*finished 42\.5s after the bots left/);
+    const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
+    assert.match(md, /\| assemblyai \|.*\| 42\.5s after call † \|/);
+    assert.match(md, /^† Ran live on the recording bot/m);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

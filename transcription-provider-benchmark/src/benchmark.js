@@ -84,7 +84,7 @@ const sameConfig = (a, b) => {
  * produced rather than dropping the provider. Accuracy is comparable, being
  * the same recording and config; turnaround is not measured.
  */
-async function reuseEarlierRuns(botId, batch) {
+async function reuseEarlierRuns(botId, batch, recording) {
   const spent = batch.filter((j) => alreadyRun(j) || j.status === "NotRun");
   if (!spent.length) return;
   const existing = await api.listTranscriptions(botId).catch(() => []);
@@ -99,6 +99,12 @@ async function reuseEarlierRuns(botId, batch) {
     job.status = "Success";
     job.transcript_id = prior.transcript_id;
     job.reused = true;
+    // The recorder timed this provider's live run from the bots leaving.
+    const live = recording?.live_transcript;
+    if (live?.transcript_id === prior.transcript_id && typeof live.turnaround_after_leaving_s === "number") {
+      job.turnaround_after_leaving_s = live.turnaround_after_leaving_s;
+      job.note += `; its live run finished ${live.turnaround_after_leaving_s}s after the bots left the call (post-call processing included, so not comparable with the other turnarounds)`;
+    }
     for (const k of ["error", "turnaround_s", "turnaround_lower_bound_s", "completed_at"]) delete job[k];
     console.log(`   ${job.provider.padEnd(12)} reusing the transcript this bot already has (turnaround not measured)`);
   }
@@ -173,7 +179,7 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
     // this recording; a later round would only be refused.
     for (const job of batch) if (job.status === "Success" || alreadyRun(job)) done.add(job.provider);
     if (round === 1) {
-      await reuseEarlierRuns(botId, batch);
+      await reuseEarlierRuns(botId, batch, recording);
     } else {
       // Refusals of a repeat round are expected, not failures worth reporting.
       for (let i = batch.length - 1; i >= 0; i--) if (alreadyRun(batch[i])) batch.splice(i, 1);

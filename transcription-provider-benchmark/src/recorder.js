@@ -112,7 +112,10 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
   const controlUrl = tunnel.replace(/^http/, "ws") + "/control";
 
   const bots = {};
+  let cleanedUp = false;
   const cleanup = async () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
     // In parallel: remove_bot only answers once the bot has left (~15s each).
     await Promise.all(
       Object.entries(bots).map(([label, id]) =>
@@ -159,12 +162,19 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
     console.log(`   waiting ${TAIL_SECONDS}s for the bot to finish playing its queue`);
     await sleep(TAIL_SECONDS * 1000);
 
+    await cleanup();
+    const leftAt = Date.now();
+    const live = liveProvider ? await timeLiveTranscript(bots.listener, liveProvider, leftAt) : null;
+
     const recording = {
       bot_id: bots.listener,
       speaker_bot_id: bots.speaker,
       meeting_platform: new URL(meetingLink).hostname,
       played_at: playedAt,
       live_provider: liveProvider ?? "meeting_captions",
+      // Only for a --live-provider: from both bots having left the call to
+      // the first poll that saw the live transcript finished.
+      live_transcript: live,
       clip: { path: path.relative(process.cwd(), audioPath).split(path.sep).join("/"), sha256: sha256File(audioPath), seconds: +clipSeconds.toFixed(3) },
       reference: { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) },
     };
@@ -179,4 +189,37 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
   }
 }
 
-module.exports = { record, startControlServer, play, SEND_RATE };
+/**
+ * A live provider's job starts by itself once the bot leaves, so its
+ * turnaround is timed from then: post-call media processing plus the
+ * provider, not comparable with a re-transcribe request's turnaround, which
+ * starts from a recording MeetStream has already processed.
+ */
+async function timeLiveTranscript(botId, provider, leftAt, pollMs = 5000, timeoutMs = 30 * 60_000) {
+  console.log(`   timing the live ${provider} transcript from the bots leaving...`);
+  let lastPoll = leftAt;
+  while (Date.now() - leftAt < timeoutMs) {
+    await sleep(pollMs);
+    const listed = await api.listTranscriptions(botId).catch(() => []);
+    const now = Date.now();
+    const job = listed.find((t) => t.provider === provider && t.status !== "Processing");
+    if (job) {
+      const result = {
+        provider,
+        transcript_id: job.transcript_id,
+        status: job.status,
+        left_call_at: new Date(leftAt).toISOString(),
+        turnaround_after_leaving_s: +((now - leftAt) / 1000).toFixed(2),
+        turnaround_after_leaving_lower_bound_s: +((lastPoll - leftAt) / 1000).toFixed(2),
+        poll_seconds: pollMs / 1000,
+      };
+      console.log(`   ${provider.padEnd(12)} ${job.status} ${result.turnaround_after_leaving_s}s after the bots left`);
+      return result;
+    }
+    lastPoll = now;
+  }
+  console.warn(`   ${provider} live transcript not finished ${timeoutMs / 60_000} minutes after the bots left`);
+  return { provider, status: "TimedOut", left_call_at: new Date(leftAt).toISOString() };
+}
+
+module.exports = { record, startControlServer, play, timeLiveTranscript, SEND_RATE };

@@ -19,6 +19,8 @@ Two choices deserve comment:
 - **`meetstream` runs on `auto`, not English.** MeetStream's docs don't confirm an English code for it. Auto-detection can only cost it accuracy, so the choice cuts against our own engine, not for it.
 - **`sarvam` runs with `en-IN`.** It is the only English code in Sarvam's MeetStream docs. The sample is American and British read speech, so this may disadvantage Sarvam.
 
+"All supported providers" means every transcription provider a MeetStream customer can turn on today: the five on the dashboard's Integrations → Transcription page. The page's "Soon" entries (ElevenLabs, Azure Speech, Gladia, Speechmatics) are not usable yet. The API also names `aws_transcribe`, but it isn't on that page and the API refuses it ("batch transcription is not enabled for the US execution plane"), so it isn't included.
+
 `meeting_captions` is excluded. It reads the meeting platform's live captions during the call, so it can't be re-run on a finished recording and would not hear the same audio as the others.
 
 ## Same audio for every provider
@@ -91,6 +93,7 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 - It **overstates** the true figure by up to one poll interval (default 5 s). `run.json` keeps a lower bound, taken from the previous poll, for each job.
 - It measures **turnaround through MeetStream**: queueing, fetching the recording, the provider's own processing and storing the result. It is what a MeetStream customer waits, not the provider's raw API latency.
 - All providers are submitted at the same moment so they run under the same load. Each gets one sample per recording (see above), so treat a single run's turnaround as indicative. A gap of a few seconds between providers is within the noise.
+- **AssemblyAI is the exception, as of 2026-09-28.** The re-transcribe endpoint refuses it ("No API key configured"), even on an account where the same key works at bot creation. So it runs live on the recording bot (`npm run record -- --live-provider assemblyai`), which starts its job automatically when the bots leave the call. Its turnaround is timed from that moment, which includes MeetStream's post-call media processing, and the table marks it with †. Don't compare it directly with the other four.
 - "× real time" is the turnaround divided by the clip length. For example, 0.25× means a 3-minute clip took 45 s.
 
 ## Limitations

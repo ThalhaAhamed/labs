@@ -76,6 +76,8 @@ function score(runDir) {
       turnaround_min_s: turnarounds.length ? Math.min(...turnarounds) : null,
       turnaround_max_s: turnarounds.length ? Math.max(...turnarounds) : null,
       real_time_factor: clipSeconds && turnarounds.length ? median(turnarounds) / clipSeconds : null,
+      // A live run is timed from the bots leaving the call instead (see recorder.js).
+      post_call_turnaround_s: scored.map((s) => s.job.turnaround_after_leaving_s).find((x) => typeof x === "number") ?? null,
       // Every error from the first successful round, so a reader can judge
       // whether they are real misrecognitions or normalisation artefacts.
       errors: first.alignment.filter((a) => a.op !== "="),
@@ -117,12 +119,18 @@ function renderMarkdown(run, results) {
       continue;
     }
     const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
+    const turnaround = r.turnaround_median_s == null && r.post_call_turnaround_s != null
+      ? `${secs(r.post_call_turnaround_s)} after call †`
+      : secs(r.turnaround_median_s);
     const rtf = r.real_time_factor == null ? "–" : `${r.real_time_factor.toFixed(2)}×`;
     const outside = r.clip_found ? `${r.outside_clip_words} word${r.outside_clip_words === 1 ? "" : "s"} (untrimmed WER ${pct(r.wer_untrimmed)})` : "clip not found, nothing cut";
-    L.push(`| ${r.provider} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${outside} | ${secs(r.turnaround_median_s)} | ${range} | ${rtf} |`);
+    L.push(`| ${r.provider} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${outside} | ${turnaround} | ${range} | ${rtf} |`);
   }
   L.push("");
   L.push("WER counts only words inside the clip: anything a provider transcribed before the clip started or after it ended (talk in the room while the bots joined) is cut first and shown under Outside clip. See METHODOLOGY.md for the rule.", "");
+  if (results.providers.some((r) => r.turnaround_median_s == null && r.post_call_turnaround_s != null)) {
+    L.push("† Ran live on the recording bot because MeetStream's re-transcribe endpoint would not run it, so it is timed from the bots leaving the call. That includes MeetStream's post-call media processing, which the other turnarounds (timed from a re-transcribe request on an already-processed recording) do not.", "");
+  }
   L.push(`WER is pooled over all successful rounds. Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing.`);
 
   const notRun = results.providers.filter((r) => !r.ran || r.failed_rounds?.length);

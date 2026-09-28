@@ -28,6 +28,7 @@
       "turnaround_min_s": 13.69,
       "turnaround_max_s": 13.69,
       "real_time_factor": 0.07151252383315486,
+      "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "S",
@@ -104,6 +105,7 @@
       "turnaround_min_s": 7.88,
       "turnaround_max_s": 7.88,
       "real_time_factor": 0.0411627967717502,
+      "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "S",
@@ -182,6 +184,7 @@
       "turnaround_min_s": null,
       "turnaround_max_s": null,
       "real_time_factor": null,
+      "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "D",
@@ -275,6 +278,7 @@
       "turnaround_min_s": 7.88,
       "turnaround_max_s": 7.88,
       "real_time_factor": 0.0411627967717502,
+      "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "D",
@@ -381,6 +385,7 @@
       "turnaround_min_s": 19.76,
       "turnaround_max_s": 19.76,
       "real_time_factor": 0.10322041423982031,
+      "post_call_turnaround_s": null,
       "errors": [
         {
           "op": "S",
