@@ -63,6 +63,7 @@ npm run benchmark -- --providers meetstream,deepgram
 npm run benchmark -- --poll 2                 # finer turnaround resolution
 npm run benchmark -- --reference my-ref.txt   # verbatim transcript of what was said
 npm run record -- --audio call.m4a --reference call.txt   # your own audio (any format ffmpeg reads)
+npm run record -- --live-provider assemblyai  # transcribe live with a provider the re-transcribe endpoint refuses (AssemblyAI, as of 2026-09-28)
 npm run score -- results/<run>                # re-score a finished run, no API key needed
 ```
 
