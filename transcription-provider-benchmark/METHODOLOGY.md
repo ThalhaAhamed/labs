@@ -28,10 +28,16 @@ This is the property the rest of the design depends on.
 1. **Record once.** Two MeetStream bots join one meeting. The *speaker* plays the reference clip into the call through the bot `sendaudio` command. The *listener* records the call, the way a customer's notetaker would. The clip therefore passes through the platform's real audio path (codec, mixing, network), not a clean file upload.
 2. **Transcribe many times.** `POST /bots/{listener}/transcribe` is called once per provider. Each call re-transcribes the listener's single stored recording, so every provider gets byte-identical input. Accuracy differences can't come from one provider getting cleaner audio.
 
-MeetStream allows its own engine (`meetstream`) **once per bot**. A second run answers HTTP 409. To leave that run for the benchmark, where it is timed like the others, the listener's live transcript uses `meeting_captions`. Consequences:
+MeetStream runs each provider **once per recording**. Its docs don't say so, but the API enforces it in two ways:
 
-- `meetstream` gets one round, while the other providers get every round, so its turnaround range is a single sample.
-- If you benchmark a bot whose `meetstream` run was already spent, the harness scores the transcript that run produced. Accuracy is still comparable (same recording, same config), but turnaround is shown as "–" and the run's `results.md` says so.
+- `meetstream` a second time on the same bot answers HTTP 409: "can only be used once per bot".
+- Any other provider a second time with the same config is accepted, then fails with "Equivalent retranscription work was already claimed".
+
+Consequences:
+
+- The listener's live transcript uses `meeting_captions`. That leaves every provider's one run for the benchmark, where it is timed.
+- One recording gives **one turnaround sample per provider**. To sample turnaround more than once, record again (`npm run record`, then `npm run benchmark`) and compare runs.
+- Benchmarking a bot where a provider already ran scores the transcript from that earlier run. Accuracy is still comparable (same recording, and the note says if the config differed), but turnaround shows as "–" and `results.md` explains why.
 
 You can also benchmark any existing bot (`--bot-id`) that recorded speech you have a verbatim reference for. Step 2 is the same.
 
@@ -47,7 +53,7 @@ LibriSpeech is read audiobook speech: one speaker at a time, careful diction, no
 
 ## Accuracy: word error rate
 
-WER = (substitutions + deletions + insertions) ÷ reference words, from a minimum-edit alignment of normalised reference and hypothesis words. It can exceed 100%. Across rounds, errors and reference words are summed before dividing (pooled), not averaged per round.
+WER = (substitutions + deletions + insertions) ÷ reference words, from a minimum-edit alignment of normalised reference and hypothesis words. It can exceed 100%. If a run holds more than one round, errors and reference words are summed before dividing (pooled), not averaged per round.
 
 Before alignment, the same normalisation is applied to both the reference and each provider's output ([src/wer.js](src/wer.js)), so formatting isn't counted as misrecognition:
 
@@ -75,8 +81,12 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 
 - It **overstates** the true figure by up to one poll interval (default 5 s). `run.json` keeps a lower bound, taken from the previous poll, for each job.
 - It measures **turnaround through MeetStream**: queueing, fetching the recording, the provider's own processing and storing the result. It is what a MeetStream customer waits, not the provider's raw API latency.
-- In each round, all providers are submitted at the same moment so they run under the same load. The default is 3 rounds. The table reports the median and the range.
-- "× real time" is the median turnaround divided by the clip length. For example, 0.25× means a 3-minute clip took 45 s.
+- All providers are submitted at the same moment so they run under the same load. Each gets one sample per recording (see above), so treat a single run's turnaround as indicative. A gap of a few seconds between providers is within the noise.
+- "× real time" is the turnaround divided by the clip length. For example, 0.25× means a 3-minute clip took 45 s.
+
+## Identical outputs
+
+If two providers return word-for-word the same transcript, `results.md` flags them as likely the same engine. On our Google Meet runs, `meetstream` and `jigsawstack` returned identical text and timestamps. The raw provider responses (`get_transcript?raw=true`) came from separate inference calls: different `log_id` and token usage, same output. Read those two rows as one engine, not two independent results.
 
 ## Limitations
 

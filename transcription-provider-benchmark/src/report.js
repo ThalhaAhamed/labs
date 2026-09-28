@@ -39,7 +39,7 @@ function score(runDir) {
       const raw = JSON.parse(fs.readFileSync(path.join(runDir, job.transcript_file), "utf8"));
       const hypothesis = normalize(transcriptText(raw));
       fs.writeFileSync(path.join(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
-      scored.push({ job, result: wer(reference, hypothesis) });
+      scored.push({ job, hypothesis, result: wer(reference, hypothesis) });
     }
 
     const failures = jobs.filter((j) => j.status !== "Success" || !j.transcript_file);
@@ -60,6 +60,7 @@ function score(runDir) {
       succeeded: scored.length,
       failed_rounds: failures.map((j) => ({ round: j.round, status: j.status, error: j.error ?? null })),
       notes: jobs.filter((j) => j.note).map((j) => j.note),
+      _hypothesis: scored[0].hypothesis,
       wer: (sum("substitutions") + sum("deletions") + sum("insertions")) / refWords,
       wer_per_round: scored.map((s) => +s.result.wer.toFixed(4)),
       substitutions: sum("substitutions"),
@@ -78,6 +79,19 @@ function score(runDir) {
   }
 
   rows.sort((a, b) => (a.ran === b.ran ? (a.wer ?? 0) - (b.wer ?? 0) : a.ran ? -1 : 1));
+
+  // Two providers returning word-for-word the same transcript of three
+  // minutes of speech are almost certainly the same engine behind two names;
+  // a reader should be told rather than count them as independent results.
+  const ran = rows.filter((r) => r.ran);
+  for (const r of ran) {
+    const twins = ran.filter((o) => o !== r && o._hypothesis === r._hypothesis).map((o) => o.provider);
+    if (twins.length) {
+      r.identical_to = twins;
+      r.notes.push(`returned word-for-word the same transcript as ${twins.join(", ")}; they are likely the same underlying engine, not independent results`);
+    }
+  }
+  for (const r of ran) delete r._hypothesis;
 
   const results = {
     run_id: run.run_id,

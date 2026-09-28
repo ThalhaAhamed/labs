@@ -29,7 +29,7 @@ async function main() {
       reference: { type: "string" },
       "bot-id": { type: "string" },
       providers: { type: "string" },
-      rounds: { type: "string", default: "3" },
+      rounds: { type: "string", default: "1" },
       poll: { type: "string", default: "5" },
       timeout: { type: "string", default: "30" },
     },

@@ -75,9 +75,11 @@ test("benchmark submits every provider, times them, scores them and reports the 
     assert.equal(by.meetstream.wer, 0);
     assert.equal(by.deepgram.wer, 1 / 9);
     assert.equal(by.assemblyai.wer, 2 / 9); // the->an, +and
-    // MeetStream's engine runs once per bot, so it gets one round; the rest get both.
+    // MeetStream runs each provider once per recording, so a provider that
+    // succeeded is not resubmitted in round 2 (it would only be refused).
     assert.equal(by.meetstream.rounds, 1);
-    assert.equal(by.deepgram.succeeded, 2);
+    assert.equal(by.deepgram.rounds, 1);
+    assert.equal(by.deepgram.succeeded, 1);
     assert.ok(by.meetstream.turnaround_median_s <= by.deepgram.turnaround_median_s);
 
     assert.equal(by.sarvam.ran, false);

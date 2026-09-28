@@ -51,7 +51,7 @@ What each step does:
 
 - **`fetch-sample`** builds the ~3 min reference clip and its transcript (about 10 MB download, once).
 - **`record`** starts the meeting yourself and admits both bots if asked. Keep everyone else muted: anything else said in the call counts as an insertion error for every provider. Both bots leave on their own when the clip ends.
-- **`benchmark`** waits for the recording to finish processing, then runs 3 rounds across all providers.
+- **`benchmark`** waits for the recording to finish processing, then runs every provider once on that recording. MeetStream allows each provider only one run per recording, so to get more samples you record again.
 
 The table is printed and saved to `results/<run>/results.md`.
 
@@ -60,7 +60,7 @@ The table is printed and saved to `results/<run>/results.md`.
 ```bash
 npm run benchmark -- --bot-id <id>            # any bot, not just the last one recorded
 npm run benchmark -- --providers meetstream,deepgram
-npm run benchmark -- --rounds 5 --poll 2      # more rounds, finer turnaround resolution
+npm run benchmark -- --poll 2                 # finer turnaround resolution
 npm run benchmark -- --reference my-ref.txt   # verbatim transcript of what was said
 npm run record -- --audio call.m4a --reference call.txt   # your own audio (any format ffmpeg reads)
 npm run score -- results/<run>                # re-score a finished run, no API key needed

@@ -56,31 +56,49 @@ async function submit(botId, provider, round) {
   return job;
 }
 
-// The API answers HTTP 409 to a second `meetstream` run on the same bot
-// ("This provider can only be used once per bot"). The recorder spends the
-// listener's live transcript on meeting captions so this one run is left for
-// the benchmark to time; later rounds skip it.
-const ONCE_PER_BOT = new Set(["meetstream"]);
+/**
+ * MeetStream runs each provider at most once per recording, and says so in
+ * two ways (neither is in its docs):
+ *   - `meetstream` a second time: HTTP 409 "can only be used once per bot";
+ *   - any provider again with the same config: the job is accepted, then
+ *     fails with "Equivalent retranscription work was already claimed".
+ * So repeat rounds on one recording are impossible (repeat by recording
+ * again), and the recorder spends the listener's live transcript on meeting
+ * captions to leave every provider's one run for the benchmark to time.
+ */
+function alreadyRun(job) {
+  return (
+    (job.status === "NotRun" && /^HTTP 409/.test(job.error ?? "") && /once per bot/i.test(job.error)) ||
+    (job.status === "Failed" && /already claimed/i.test(job.error ?? ""))
+  );
+}
+
+const sameConfig = (a, b) => {
+  const canon = (o) => JSON.stringify(Object.keys(o ?? {}).sort().map((k) => [k, o[k]]));
+  return canon(a) === canon(b);
+};
 
 /**
- * For a bot whose one `meetstream` run was already spent (e.g. it was
- * recorded outside this harness), score the transcript that run produced
- * rather than leaving the engine out. Accuracy is comparable, since it is the
- * same recording and config; turnaround is not measured.
+ * For a provider that already ran on this bot (it was benchmarked before, or
+ * recorded outside this harness), score the transcript that earlier run
+ * produced rather than dropping the provider. Accuracy is comparable, being
+ * the same recording and config; turnaround is not measured.
  */
-async function reuseOncePerBotTranscripts(botId, batch) {
-  const spent = batch.filter((j) => j.status === "NotRun" && ONCE_PER_BOT.has(j.provider) && /^HTTP 409/.test(j.error));
+async function reuseEarlierRuns(botId, batch) {
+  const spent = batch.filter(alreadyRun);
   if (!spent.length) return;
   const existing = await api.listTranscriptions(botId).catch(() => []);
   for (const job of spent) {
-    const prior = existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id);
+    const inner = Object.values(PROVIDERS[job.provider])[0];
+    const prior =
+      existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id && sameConfig(t.config, inner)) ??
+      existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id);
     if (!prior) continue;
+    job.note = `already run on this bot (${job.error.replace(/^HTTP 409: /, "")}); scored the earlier transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}${sameConfig(prior.config, inner) ? "" : ` whose config was ${JSON.stringify(prior.config)}`}, turnaround not measured`;
     job.status = "Success";
     job.transcript_id = prior.transcript_id;
-    job.config = prior.config ?? job.config;
     job.reused = true;
-    job.note = `already run on this bot (${job.error.replace(/^HTTP 409: /, "")}); scored the existing transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}, turnaround not measured`;
-    delete job.error;
+    for (const k of ["error", "turnaround_s", "turnaround_lower_bound_s", "completed_at"]) delete job[k];
     console.log(`   ${job.provider.padEnd(12)} reusing the transcript this bot already has (turnaround not measured)`);
   }
 }
@@ -108,7 +126,8 @@ async function pollUntilDone(botId, jobs, pollMs, timeoutMs) {
       job.turnaround_s = +((now - job._t0) / 1000).toFixed(2);
       job.turnaround_lower_bound_s = +(Math.max(0, lastPoll - job._t0) / 1000).toFixed(2);
       job.server_created_at = entry.created_at ?? null;
-      console.log(`   ${job.provider.padEnd(12)} ${entry.status.padEnd(8)} ${job.turnaround_s}s`);
+      if (entry.error) job.error = entry.error;
+      console.log(`   ${job.provider.padEnd(12)} ${entry.status.padEnd(8)} ${job.turnaround_s}s${entry.error ? `  ${entry.error}` : ""}`);
     }
     lastPoll = now;
   }
@@ -139,17 +158,25 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
   const botStatus = await waitForRecording(botId);
 
   const jobs = [];
+  const done = new Set(); // providers MeetStream will not run again on this bot
   for (let round = 1; round <= rounds; round++) {
-    // Providers that only run once per bot get one round; the rest get all.
-    const roundProviders = round === 1 ? providers : providers.filter((p) => !ONCE_PER_BOT.has(p));
+    const roundProviders = providers.filter((p) => !done.has(p));
     if (!roundProviders.length) break;
     console.log(`  Round ${round}/${rounds}: submitting ${roundProviders.length} providers at once`);
     const batch = await Promise.all(roundProviders.map((p) => submit(botId, p, round)));
-    if (round === 1) await reuseOncePerBotTranscripts(botId, batch);
-    for (const job of batch.filter((j) => j.status === "NotRun")) {
+    for (const job of batch.filter((j) => j.status === "NotRun" && !alreadyRun(j))) {
       console.log(`   ${job.provider.padEnd(12)} not run  ${job.error}`);
     }
     await pollUntilDone(botId, batch, pollSeconds * 1000, timeoutMinutes * 60_000);
+    // A provider that ran (or was refused as already run) is finished with
+    // this recording; a later round would only be refused.
+    for (const job of batch) if (job.status === "Success" || alreadyRun(job)) done.add(job.provider);
+    if (round === 1) {
+      await reuseEarlierRuns(botId, batch);
+    } else {
+      // Refusals of a repeat round are expected, not failures worth reporting.
+      for (let i = batch.length - 1; i >= 0; i--) if (alreadyRun(batch[i])) batch.splice(i, 1);
+    }
 
     for (const job of batch.filter((j) => j.status === "Success")) {
       try {
