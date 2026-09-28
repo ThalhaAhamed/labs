@@ -20,8 +20,15 @@ const { startTunnel } = require("./tunnel");
 
 const SEND_RATE = 48_000;           // what sendaudio expects
 const CHUNK_SECONDS = 1;
-const LEAD_SECONDS = 0.5;           // stay this far ahead of real time so the bot never starves
-const SETTLE_SECONDS = 5;           // silence before and after the clip
+// Keep this much audio queued on the bot. With 0.5s a live Meet run drifted
+// ~4.6s behind real time over 3 minutes, which looks like the bot running
+// dry and padding with silence.
+const LEAD_SECONDS = 2;
+const SETTLE_SECONDS = 5;           // silence before the clip
+// Wait this long after the last chunk is sent before removing the bots. The
+// bot is still playing its queue (plus any drift) after we finish sending,
+// and removing it at +5s cut the last ~13s of a 191s clip from the recording.
+const TAIL_SECONDS = 20;
 const JOIN_TIMEOUT_MS = 10 * 60_000; // time allowed for someone to admit the bots
 const IN_CALL = new Set(["InMeeting", "Recording"]);
 const FAILED = new Set(["Failed", "Denied", "NotAllowed", "Stopped", "Done"]);
@@ -105,12 +112,15 @@ async function record({ meetingLink, audioPath, referencePath, port }) {
 
   const bots = {};
   const cleanup = async () => {
-    for (const [label, id] of Object.entries(bots)) {
-      await api.removeBot(id).then(
-        () => console.log(`   ${label.padEnd(8)} removed`),
-        (e) => console.warn(`   ${label.padEnd(8)} could not be removed: ${api.describeError(e)}`)
-      );
-    }
+    // In parallel: remove_bot only answers once the bot has left (~15s each).
+    await Promise.all(
+      Object.entries(bots).map(([label, id]) =>
+        api.removeBot(id).then(
+          () => console.log(`   ${label.padEnd(8)} removed`),
+          (e) => console.warn(`   ${label.padEnd(8)} could not be removed: ${api.describeError(e)}`)
+        )
+      )
+    );
     server.close();
   };
 
@@ -119,7 +129,10 @@ async function record({ meetingLink, audioPath, referencePath, port }) {
       meeting_link: meetingLink,
       bot_name: "Benchmark Recorder",
       video_required: false,
-      recording_config: { transcript: { provider: { meetstream: { language: "auto" } } } },
+      // Meeting captions, not the MeetStream engine: MeetStream allows its
+      // engine once per bot, and that run belongs to the benchmark, where
+      // it is timed like every other provider.
+      recording_config: { transcript: { provider: { meeting_captions: {} } } },
     });
     bots.listener = listener.bot_id ?? listener.id;
     console.log(`  Listener bot ${bots.listener}`);
@@ -140,7 +153,8 @@ async function record({ meetingLink, audioPath, referencePath, port }) {
     await sleep(SETTLE_SECONDS * 1000);
     const playedAt = new Date().toISOString();
     await play(ws, bots.speaker, pcm);
-    await sleep(SETTLE_SECONDS * 1000);
+    console.log(`   waiting ${TAIL_SECONDS}s for the bot to finish playing its queue`);
+    await sleep(TAIL_SECONDS * 1000);
 
     const recording = {
       bot_id: bots.listener,

@@ -5,12 +5,12 @@ const { decodeToPcm, pcmToWav } = require("../src/audio");
 const { startControlServer, play, SEND_RATE } = require("../src/recorder");
 
 test("the speaker bot's socket receives the clip as real-time-paced sendaudio chunks", async () => {
-  // 2.5s of a 440 Hz tone at 16 kHz, round-tripped through a WAV file's
+  // 5.5s of a 440 Hz tone at 16 kHz, round-tripped through a WAV file's
   // bytes so the ffmpeg decode + resample to 48 kHz is exercised too.
-  const src = Buffer.alloc(16_000 * 2.5 * 2);
+  const src = Buffer.alloc(16_000 * 5.5 * 2);
   for (let i = 0; i < src.length / 2; i++) src.writeInt16LE(Math.round(8000 * Math.sin((2 * Math.PI * 440 * i) / 16_000)), i * 2);
   const pcm = await decodeToPcm(pcmToWav(src, 16_000), SEND_RATE);
-  assert.ok(Math.abs(pcm.length - SEND_RATE * 2.5 * 2) <= 2 * 48, `48 kHz decode length ${pcm.length}`);
+  assert.ok(Math.abs(pcm.length - SEND_RATE * 5.5 * 2) <= 2 * 48, `48 kHz decode length ${pcm.length}`);
 
   const { server, socket } = await startControlServer(0);
   const port = server.address().port;
@@ -31,7 +31,7 @@ test("the speaker bot's socket receives the clip as real-time-paced sendaudio ch
   bot.close();
   server.close();
 
-  assert.equal(received.length, 3); // 1s + 1s + 0.5s
+  assert.equal(received.length, 6); // five 1s chunks + 0.5s
   for (const { msg } of received) {
     assert.equal(msg.command, "sendaudio");
     assert.equal(msg.bot_id, "bot-speaker");
@@ -43,8 +43,8 @@ test("the speaker bot's socket receives the clip as real-time-paced sendaudio ch
   const sent = Buffer.concat(received.map(({ msg }) => Buffer.from(msg.audiochunk, "base64")));
   assert.ok(sent.equals(pcm), "every byte of the clip arrives, in order");
 
-  // Paced to the wall clock, half a second ahead: the last chunk (starting at
-  // 2.0s of audio) goes out about 1.5s after the first.
-  const lastAt = received[2].at - started;
-  assert.ok(lastAt >= 1400 && lastAt < 2200, `last chunk sent after ${lastAt}ms`);
+  // Paced to the wall clock, two seconds ahead: chunks 0-2 go out at once,
+  // then one per second, so the last (5.0s of audio) leaves ~3s after the first.
+  const lastAt = received[5].at - started;
+  assert.ok(lastAt >= 2800 && lastAt < 3600, `last chunk sent after ${lastAt}ms`);
 });

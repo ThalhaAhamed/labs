@@ -56,6 +56,35 @@ async function submit(botId, provider, round) {
   return job;
 }
 
+// The API answers HTTP 409 to a second `meetstream` run on the same bot
+// ("This provider can only be used once per bot"). The recorder spends the
+// listener's live transcript on meeting captions so this one run is left for
+// the benchmark to time; later rounds skip it.
+const ONCE_PER_BOT = new Set(["meetstream"]);
+
+/**
+ * For a bot whose one `meetstream` run was already spent (e.g. it was
+ * recorded outside this harness), score the transcript that run produced
+ * rather than leaving the engine out. Accuracy is comparable, since it is the
+ * same recording and config; turnaround is not measured.
+ */
+async function reuseOncePerBotTranscripts(botId, batch) {
+  const spent = batch.filter((j) => j.status === "NotRun" && ONCE_PER_BOT.has(j.provider) && /^HTTP 409/.test(j.error));
+  if (!spent.length) return;
+  const existing = await api.listTranscriptions(botId).catch(() => []);
+  for (const job of spent) {
+    const prior = existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id);
+    if (!prior) continue;
+    job.status = "Success";
+    job.transcript_id = prior.transcript_id;
+    job.config = prior.config ?? job.config;
+    job.reused = true;
+    job.note = `already run on this bot (${job.error.replace(/^HTTP 409: /, "")}); scored the existing transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}, turnaround not measured`;
+    delete job.error;
+    console.log(`   ${job.provider.padEnd(12)} reusing the transcript this bot already has (turnaround not measured)`);
+  }
+}
+
 async function pollUntilDone(botId, jobs, pollMs, timeoutMs) {
   const pending = () => jobs.filter((j) => j.status === "Processing");
   const deadline = Date.now() + timeoutMs;
@@ -111,8 +140,12 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
 
   const jobs = [];
   for (let round = 1; round <= rounds; round++) {
-    console.log(`  Round ${round}/${rounds}: submitting ${providers.length} providers at once`);
-    const batch = await Promise.all(providers.map((p) => submit(botId, p, round)));
+    // Providers that only run once per bot get one round; the rest get all.
+    const roundProviders = round === 1 ? providers : providers.filter((p) => !ONCE_PER_BOT.has(p));
+    if (!roundProviders.length) break;
+    console.log(`  Round ${round}/${rounds}: submitting ${roundProviders.length} providers at once`);
+    const batch = await Promise.all(roundProviders.map((p) => submit(botId, p, round)));
+    if (round === 1) await reuseOncePerBotTranscripts(botId, batch);
     for (const job of batch.filter((j) => j.status === "NotRun")) {
       console.log(`   ${job.provider.padEnd(12)} not run  ${job.error}`);
     }

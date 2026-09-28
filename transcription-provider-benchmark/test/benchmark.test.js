@@ -75,7 +75,9 @@ test("benchmark submits every provider, times them, scores them and reports the 
     assert.equal(by.meetstream.wer, 0);
     assert.equal(by.deepgram.wer, 1 / 9);
     assert.equal(by.assemblyai.wer, 2 / 9); // the->an, +and
-    assert.equal(by.meetstream.succeeded, 2);
+    // MeetStream's engine runs once per bot, so it gets one round; the rest get both.
+    assert.equal(by.meetstream.rounds, 1);
+    assert.equal(by.deepgram.succeeded, 2);
     assert.ok(by.meetstream.turnaround_median_s <= by.deepgram.turnaround_median_s);
 
     assert.equal(by.sarvam.ran, false);
@@ -102,6 +104,47 @@ test("benchmark submits every provider, times them, scores them and reports the 
     const { score } = require("../src/report");
     fs.rmSync(path.join(runDir, "results.json"));
     assert.deepEqual(score(runDir).results.providers.map((r) => r.wer), results.providers.map((r) => r.wer));
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a bot that already spent its one meetstream run is scored from that run's transcript", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => {
+    const err = new Error("Request failed");
+    err.response = { status: 409, data: { error: "MeetStream transcription has already been used for this bot. This provider can only be used once per bot." } };
+    throw err;
+  };
+  api.listTranscriptions = async () => [
+    { transcript_id: "earlier", provider: "meetstream", status: "Success", created_at: "2026-09-28T11:12:33Z", config: { language: "auto" } },
+    { transcript_id: null, provider: "meeting_captions", status: "Success" },
+  ];
+  api.getTranscript = async () => ({ message: [{ participant: { name: "A" }, words: [{ text: OUTPUTS.meetstream }] }] });
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-2", referencePath: "reference.txt", providers: ["meetstream"], rounds: 3, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const { providers: [row] } = JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8"));
+    assert.equal(row.ran, true);
+    assert.equal(row.wer, 0);
+    assert.equal(row.rounds, 1);
+    assert.equal(row.turnaround_median_s, null);
+    assert.match(row.notes[0], /already run on this bot.*turnaround not measured/);
+    assert.match(fs.readFileSync(path.join(runDir, "results.md"), "utf8"), /\| meetstream \| 0\.0% \|.*\| – \|/);
   } finally {
     process.chdir(cwd);
     fs.rmSync(dir, { recursive: true, force: true });

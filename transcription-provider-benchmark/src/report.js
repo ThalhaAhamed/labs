@@ -59,6 +59,7 @@ function score(runDir) {
       rounds: jobs.length,
       succeeded: scored.length,
       failed_rounds: failures.map((j) => ({ round: j.round, status: j.status, error: j.error ?? null })),
+      notes: jobs.filter((j) => j.note).map((j) => j.note),
       wer: (sum("substitutions") + sum("deletions") + sum("insertions")) / refWords,
       wer_per_round: scored.map((s) => +s.result.wer.toFixed(4)),
       substitutions: sum("substitutions"),
@@ -123,6 +124,12 @@ function renderMarkdown(run, results) {
       if (!r.ran) L.push(`- **${r.provider}**: ${r.reason}`);
       else for (const f of r.failed_rounds) L.push(`- **${r.provider}** round ${f.round}: ${f.status}${f.error ? ` (${f.error})` : ""}`);
     }
+  }
+
+  const noted = results.providers.filter((r) => r.notes?.length);
+  if (noted.length) {
+    L.push("", "## Notes", "");
+    for (const r of noted) for (const n of r.notes) L.push(`- **${r.provider}**: ${n}`);
   }
 
   L.push("", "## Errors by provider (first successful round)", "");

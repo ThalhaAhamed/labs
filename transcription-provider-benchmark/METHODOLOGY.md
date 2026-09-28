@@ -28,6 +28,11 @@ This is the property the rest of the design depends on.
 1. **Record once.** Two MeetStream bots join one meeting. The *speaker* plays the reference clip into the call through the bot `sendaudio` command. The *listener* records the call, the way a customer's notetaker would. The clip therefore passes through the platform's real audio path (codec, mixing, network), not a clean file upload.
 2. **Transcribe many times.** `POST /bots/{listener}/transcribe` is called once per provider. Each call re-transcribes the listener's single stored recording, so every provider gets byte-identical input. Accuracy differences can't come from one provider getting cleaner audio.
 
+MeetStream allows its own engine (`meetstream`) **once per bot**. A second run answers HTTP 409. To leave that run for the benchmark, where it is timed like the others, the listener's live transcript uses `meeting_captions`. Consequences:
+
+- `meetstream` gets one round, while the other providers get every round, so its turnaround range is a single sample.
+- If you benchmark a bot whose `meetstream` run was already spent, the harness scores the transcript that run produced. Accuracy is still comparable (same recording, same config), but turnaround is shown as "–" and the run's `results.md` says so.
+
 You can also benchmark any existing bot (`--bot-id`) that recorded speech you have a verbatim reference for. Step 2 is the same.
 
 ## The sample clip
