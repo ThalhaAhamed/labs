@@ -86,7 +86,7 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 
 ## Identical outputs
 
-If two providers return word-for-word the same transcript, `results.md` flags them as likely the same engine. On our Google Meet runs, `meetstream` and `jigsawstack` returned identical text and timestamps. The raw provider responses (`get_transcript?raw=true`) came from separate inference calls: different `log_id` and token usage, same output. Read those two rows as one engine, not two independent results.
+If two providers return word-for-word the same transcript, `results.md` flags them as likely the same engine.
 
 ## Limitations
 
