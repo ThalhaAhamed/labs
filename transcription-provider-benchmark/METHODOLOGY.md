@@ -84,10 +84,6 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 - All providers are submitted at the same moment so they run under the same load. Each gets one sample per recording (see above), so treat a single run's turnaround as indicative. A gap of a few seconds between providers is within the noise.
 - "× real time" is the turnaround divided by the clip length. For example, 0.25× means a 3-minute clip took 45 s.
 
-## Identical outputs
-
-If two providers return word-for-word the same transcript, `results.md` flags them as likely the same engine.
-
 ## Limitations
 
 - **Not meeting speech.** The default clip is read English. Conversational speech, accents, crosstalk, jargon and code-switching all change WER and can change rankings. To measure those, use `--audio` and `--reference` with your own recording and a verbatim transcript.
