@@ -1,0 +1,110 @@
+# Transcription Provider Benchmark
+
+This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
+
+| Provider | WER | Sub | Del | Ins | Turnaround (median) | Range | × real time |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| … | | | | | | | |
+
+The results table comes from `npm run benchmark`. This repo publishes no numbers yet. The first published run will link here with its complete `results/` directory.
+
+**Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.
+
+## How it works
+
+```
+ fetch-sample           record                              benchmark                          score
+ ────────────           ──────                              ─────────                          ─────
+ LibriSpeech  ──►  clip.wav ──► speaker bot ──► meeting ──► listener bot's recording ──┬─► meetstream  ─┐
+ (pinned,          reference.txt   (sendaudio)                                          ├─► deepgram    ─┤
+  CC BY 4.0)                                                                            ├─► assemblyai  ─┼─► WER + turnaround
+                                                                                        ├─► sarvam      ─┤    per provider
+                                                                                        └─► jigsawstack ─┘
+                                              POST /bots/{id}/transcribe, same audio every time
+```
+
+1. **Record once.** A speaker bot plays the reference clip into a real meeting while a listener bot records it. The audio goes through the platform's real codec, like a customer's call would.
+2. **Transcribe many times.** `POST /bots/{id}/transcribe` re-runs that one recording through each provider. Every provider gets byte-identical audio, and all are submitted together so they run under the same load.
+3. **Score offline.** Each transcript is normalised and aligned against the reference. Everything needed to recompute the table, including the raw API responses, is saved in `results/<run>/`, so someone without an API key can check it.
+
+## What you need
+
+- Node.js 18+
+- A MeetStream API key from [app.meetstream.ai](https://app.meetstream.ai)
+- A free ngrok authtoken from [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken). The speaker bot connects back to this machine through it.
+- A meeting link (Google Meet, Zoom or Teams) you can admit two bots into
+- For every provider except `meetstream`: that provider's key configured in the MeetStream dashboard under **Integrations → Transcription**. Providers you haven't configured are listed as "not run", with the API's reason.
+
+## Run it
+
+```bash
+npm install
+cp .env.example .env
+npm run fetch-sample
+npm run record
+npm run benchmark
+```
+
+After copying `.env.example`, fill in `MEETSTREAM_API_KEY`, `MEETING_LINK` and `NGROK_AUTHTOKEN`.
+
+What each step does:
+
+- **`fetch-sample`** builds the ~3 min reference clip and its transcript (about 10 MB download, once).
+- **`record`** starts the meeting yourself and admits both bots if asked. Keep everyone else muted: anything else said in the call counts as an insertion error for every provider. Both bots leave on their own when the clip ends.
+- **`benchmark`** waits for the recording to finish processing, then runs 3 rounds across all providers.
+
+The table is printed and saved to `results/<run>/results.md`.
+
+### Options
+
+```bash
+npm run benchmark -- --bot-id <id>            # any bot, not just the last one recorded
+npm run benchmark -- --providers meetstream,deepgram
+npm run benchmark -- --rounds 5 --poll 2      # more rounds, finer turnaround resolution
+npm run benchmark -- --reference my-ref.txt   # verbatim transcript of what was said
+npm run record -- --audio call.m4a --reference call.txt   # your own audio (any format ffmpeg reads)
+npm run score -- results/<run>                # re-score a finished run, no API key needed
+```
+
+Your own audio is the better test for a buying decision: your accents, your jargon, your crosstalk. The reference must be a verbatim transcript of what was said, not a summary or a cleaned-up version.
+
+### Check the scorer independently
+
+```bash
+pip install -r scripts/requirements.txt
+python scripts/score_jiwer.py results/<run>
+```
+
+This re-scores the same raw transcripts with jiwer and OpenAI Whisper's text normaliser. It shares no code with the Node scorer.
+
+## Output
+
+```
+results/<run>/
+  run.json                    bot, recording, exact provider configs, every job with timings
+  reference.txt               the reference used
+  transcripts/<p>.r<n>.json   raw get_transcript response per provider per round
+  transcripts/<p>.r<n>.normalized.txt
+  results.json                per-provider WER, S/D/I, turnaround, every word error
+  results.md                  the table, plus each provider's errors listed word by word
+```
+
+## Files
+
+| File | What it does |
+|---|---|
+| `index.js` | CLI: `record`, `benchmark` and `score` |
+| `src/providers.js` | The exact config sent to each provider. Edit here, nowhere else. |
+| `src/recorder.js` | Two bots, one control WebSocket, and real-time-paced `sendaudio` |
+| `src/benchmark.js` | Submits every provider together, polls and saves raw output |
+| `src/report.js` | Scores a run directory into `results.md` and `results.json` |
+| `src/wer.js` | Normalisation and WER alignment |
+| `src/transcript.js` | Flattens either transcript response shape to text |
+| `scripts/fetch-sample.js` | Builds the pinned LibriSpeech clip |
+| `scripts/score_jiwer.py` | Independent re-score with jiwer and the Whisper normaliser |
+
+`npm test` runs the scorer, the transcript parser, the `sendaudio` streaming path and a full benchmark against a stubbed API. It needs no key and no network.
+
+## Attribution
+
+The sample clip is LibriSpeech (V. Panayotov, G. Chen, D. Povey, S. Khudanpur, "LibriSpeech: an ASR corpus based on public domain audio books", ICASSP 2015), licensed CC BY 4.0.

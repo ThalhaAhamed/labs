@@ -1,0 +1,11 @@
+node_modules/
+.env
+
+# Built by `npm run fetch-sample`; manifest.json and reference.txt are committed
+# so the clip's contents and checksum are visible without running anything.
+sample/.cache/
+sample/clip.wav
+
+# Per-run output. Commit a run's directory deliberately when publishing it.
+recordings/
+results/
