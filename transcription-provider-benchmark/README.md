@@ -22,6 +22,12 @@ How to read this:
 
 **Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.
 
+## Related: live providers
+
+This harness compares MeetStream's **post-call** providers: the ones you configure on the dashboard's Integrations page, run on a finished recording.
+
+[`../realtime-audio-streaming`](../realtime-audio-streaming) is the example that switches between **live streaming** providers (Deepgram, AssemblyAI, OpenAI) during a call. Its `npm run compare` sends the same audio to all of them at once and tabulates WER and finalisation latency with this harness's scorer. Point it at this harness's `sample/clip.wav` and `sample/reference.txt` to put live and post-call numbers on the same clip.
+
 ## How it works
 
 ```

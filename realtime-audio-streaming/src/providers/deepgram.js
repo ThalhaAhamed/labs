@@ -22,6 +22,25 @@ const DEEPGRAM_URL =
   "?encoding=linear16&sample_rate=48000&channels=1" +
   "&punctuate=true&smart_format=true&interim_results=true";
 
+/**
+ * Turns one Deepgram message into what onResult needs, or null if it carries
+ * no transcript. Results messages give their position in the audio stream as
+ * start + duration (seconds), which the comparison uses for latency.
+ */
+export function parseMessage(msg) {
+  if (msg?.type !== "Results") return null;
+  const alt = msg.channel?.alternatives?.[0];
+  if (!alt?.transcript?.trim()) return null;
+  return {
+    text: alt.transcript,
+    isFinal: Boolean(msg.is_final),
+    meta: {
+      confidence: alt.confidence,
+      audioEnd: typeof msg.start === "number" && typeof msg.duration === "number" ? msg.start + msg.duration : undefined,
+    },
+  };
+}
+
 export default {
   name: "Deepgram (speech-to-text)",
 
@@ -63,12 +82,9 @@ export default {
         ws.on("message", (raw) => {
           let msg;
           try { msg = JSON.parse(raw.toString()); } catch { return; }
-          if (msg.type === "Results") {
-            const alt = msg.channel?.alternatives?.[0];
-            if (alt?.transcript?.trim()) {
-              onResult(alt.transcript, msg.is_final, { confidence: alt.confidence });
-            }
-          }
+          if (msg.from_finalize) this._finalized?.();
+          const result = parseMessage(msg);
+          if (result) onResult(result.text, result.isFinal, result.meta);
         });
       },
 
@@ -99,6 +115,19 @@ export default {
         console.log(`  ⚠ Deepgram reconnecting — ${this.framesDroppedWhileReconnecting} frames dropped so far`);
       }
     }
+  },
+
+  /**
+   * Optional: called when the audio has ended, before disconnect(). Asks
+   * Deepgram to finalise whatever it is still holding, and waits (up to 10 s)
+   * for that last result so no trailing words are lost.
+   */
+  async flush() {
+    const ws = this._reconnect?.getSocket();
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    const done = new Promise((resolve) => (this._finalized = resolve));
+    ws.send(JSON.stringify({ type: "Finalize" }));
+    await Promise.race([done, new Promise((r) => setTimeout(r, 10_000))]);
   },
 
   async disconnect() {
