@@ -41,6 +41,22 @@ def transcript_text(data):
     return " ".join(t for _, t in segments)
 
 
+def clip_window(reference, hypothesis, anchor=3):
+    """The rule src/wer.js clipWindow() applies, on jiwer's own alignment:
+    cut what was transcribed before the first / after the last run of
+    `anchor` correct words, keeping as many hypothesis words at each edge as
+    the reference has there."""
+    ref, hyp = reference.split(), hypothesis.split()
+    runs = [c for c in jiwer.process_words(reference, hypothesis).alignments[0]
+            if c.type == "equal" and c.ref_end_idx - c.ref_start_idx >= anchor]
+    if not runs:
+        return hypothesis
+    first, last = runs[0], runs[-1]
+    start = max(0, first.hyp_start_idx - first.ref_start_idx)
+    end = min(len(hyp), last.hyp_end_idx + (len(ref) - last.ref_end_idx))
+    return " ".join(hyp[start:end])
+
+
 def main(run_dir):
     run_dir = Path(run_dir)
     run = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
@@ -52,7 +68,7 @@ def main(run_dir):
         if job.get("status") != "Success" or not job.get("transcript_file"):
             continue
         data = json.loads((run_dir / job["transcript_file"]).read_text(encoding="utf-8"))
-        hypothesis = normalise(transcript_text(data))
+        hypothesis = clip_window(reference, normalise(transcript_text(data)))
         out = jiwer.process_words(reference, hypothesis)
         agg = by_provider.setdefault(job["provider"], [0, 0, 0, 0])
         agg[0] += out.substitutions

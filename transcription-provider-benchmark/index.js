@@ -28,6 +28,7 @@ async function main() {
       audio: { type: "string", default: "sample/clip.wav" },
       reference: { type: "string" },
       "bot-id": { type: "string" },
+      "live-provider": { type: "string" },
       providers: { type: "string" },
       rounds: { type: "string", default: "1" },
       poll: { type: "string", default: "5" },
@@ -45,6 +46,7 @@ async function main() {
         meetingLink: process.env.MEETING_LINK,
         audioPath: values.audio,
         referencePath: values.reference ?? "sample/reference.txt",
+        liveProvider: values["live-provider"] ? selectProviders(values["live-provider"])[0] : undefined,
         port: parseInt(process.env.PORT || "3000", 10),
       });
       break;

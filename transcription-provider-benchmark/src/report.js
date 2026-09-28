@@ -5,7 +5,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { normalize, wer } = require("./wer");
+const { normalize, wer, clipWindow } = require("./wer");
 const { transcriptText } = require("./transcript");
 
 const NORMALIZER = "src/wer.js normalize() (see METHODOLOGY.md)";
@@ -39,7 +39,10 @@ function score(runDir) {
       const raw = JSON.parse(fs.readFileSync(path.join(runDir, job.transcript_file), "utf8"));
       const hypothesis = normalize(transcriptText(raw));
       fs.writeFileSync(path.join(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
-      scored.push({ job, result: wer(reference, hypothesis) });
+      // Score only what falls inside the clip; talk before or after it in
+      // the room is not the provider's error. The untrimmed figure is kept.
+      const window = clipWindow(reference, hypothesis);
+      scored.push({ job, window, full: wer(reference, hypothesis), result: wer(reference, window.hypothesis) });
     }
 
     const failures = jobs.filter((j) => j.status !== "Success" || !j.transcript_file);
@@ -66,6 +69,9 @@ function score(runDir) {
       deletions: sum("deletions"),
       insertions: sum("insertions"),
       reference_words: refWords,
+      outside_clip_words: scored.reduce((n, s) => n + s.window.before + s.window.after, 0),
+      clip_found: scored.every((s) => s.window.anchored),
+      wer_untrimmed: scored.reduce((n, s) => n + s.full.substitutions + s.full.deletions + s.full.insertions, 0) / refWords,
       turnaround_median_s: median(turnarounds),
       turnaround_min_s: turnarounds.length ? Math.min(...turnarounds) : null,
       turnaround_max_s: turnarounds.length ? Math.max(...turnarounds) : null,
@@ -103,18 +109,20 @@ function renderMarkdown(run, results) {
   L.push(`- Rounds: ${run.rounds}, all providers submitted together each round; turnaround polled every ${results.poll_seconds}s`);
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");
 
-  L.push("| Provider | WER | Sub | Del | Ins | Turnaround (median) | Range | × real time |");
-  L.push("|---|---:|---:|---:|---:|---:|---:|---:|");
+  L.push("| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (median) | Range | × real time |");
+  L.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const r of results.providers) {
     if (!r.ran) {
-      L.push(`| ${r.provider} | not run | | | | | | |`);
+      L.push(`| ${r.provider} | not run | | | | | | | |`);
       continue;
     }
     const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
     const rtf = r.real_time_factor == null ? "–" : `${r.real_time_factor.toFixed(2)}×`;
-    L.push(`| ${r.provider} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${secs(r.turnaround_median_s)} | ${range} | ${rtf} |`);
+    const outside = r.clip_found ? `${r.outside_clip_words} word${r.outside_clip_words === 1 ? "" : "s"} (untrimmed WER ${pct(r.wer_untrimmed)})` : "clip not found, nothing cut";
+    L.push(`| ${r.provider} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${outside} | ${secs(r.turnaround_median_s)} | ${range} | ${rtf} |`);
   }
   L.push("");
+  L.push("WER counts only words inside the clip: anything a provider transcribed before the clip started or after it ended (talk in the room while the bots joined) is cut first and shown under Outside clip. See METHODOLOGY.md for the rule.", "");
   L.push(`WER is pooled over all successful rounds. Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing.`);
 
   const notRun = results.providers.filter((r) => !r.ran || r.failed_rounds?.length);

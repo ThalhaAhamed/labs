@@ -58,3 +58,38 @@ test("wer edge cases", () => {
   // WER is not capped at 100%: inserting more words than the reference has is possible.
   assert.equal(wer("a", "x y z").wer, 3);
 });
+
+const { clipWindow } = require("../src/wer");
+
+test("clipWindow cuts talk before and after the clip", () => {
+  const ref = "mister quilter is the apostle of the middle classes";
+  const w = clipWindow(ref, "hi everyone let's start mister quilter is the apostle of the middle classes okay bye");
+  assert.deepEqual(w, { hypothesis: ref, before: 4, after: 2, anchored: true });
+  assert.equal(wer(ref, w.hypothesis).wer, 0);
+});
+
+test("clipWindow still charges errors on the clip's own first and last words", () => {
+  const ref = "mister quilter is the apostle of the middle classes";
+  // First two words and the last word misheard, with chatter around it. Two
+  // reference words precede the first correct run, so two hypothesis words
+  // are kept there; one follows the last run, so one is kept after it.
+  const w = clipWindow(ref, "hello there my ster quilted is the apostle of the middle bye now");
+  assert.equal(w.hypothesis, "ster quilted is the apostle of the middle bye");
+  assert.equal(w.before, 3);
+  assert.equal(w.after, 1);
+  const r = wer(ref, w.hypothesis);
+  assert.equal(r.substitutions, 3); // mister→ster, quilter→quilted, classes→bye
+  assert.equal(r.deletions + r.insertions, 0);
+});
+
+test("clipWindow leaves everything when no run of correct words anchors the clip", () => {
+  const w = clipWindow("a b c d e", "x a y b z");
+  assert.deepEqual(w, { hypothesis: "x a y b z", before: 0, after: 0, anchored: false });
+});
+
+test("talk in the middle of the clip still counts", () => {
+  const ref = "one two three four five six seven eight";
+  const w = clipWindow(ref, "one two three hey there four five six seven eight");
+  assert.equal(w.before + w.after, 0);
+  assert.equal(wer(ref, w.hypothesis).insertions, 2);
+});

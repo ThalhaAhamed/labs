@@ -74,7 +74,11 @@ test("benchmark submits every provider, times them, scores them and reports the 
 
     assert.equal(by.meetstream.wer, 0);
     assert.equal(by.deepgram.wer, 1 / 9);
-    assert.equal(by.assemblyai.wer, 2 / 9); // the->an, +and
+    // the->an; the trailing "and" comes after the clip's last word, so it is
+    // cut as outside the clip rather than counted.
+    assert.equal(by.assemblyai.wer, 1 / 9);
+    assert.equal(by.assemblyai.outside_clip_words, 1);
+    assert.equal(by.assemblyai.wer_untrimmed, 2 / 9);
     // MeetStream runs each provider once per recording, so a provider that
     // succeeded is not resubmitted in round 2 (it would only be refused).
     assert.equal(by.meetstream.rounds, 1);

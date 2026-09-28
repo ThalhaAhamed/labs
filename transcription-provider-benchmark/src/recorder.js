@@ -17,6 +17,7 @@ const { WebSocketServer } = require("ws");
 const api = require("./api");
 const { decodeToPcm, sha256File } = require("./audio");
 const { startTunnel } = require("./tunnel");
+const { PROVIDERS } = require("./providers");
 
 const SEND_RATE = 48_000;           // what sendaudio expects
 const CHUNK_SECONDS = 1;
@@ -99,7 +100,7 @@ async function play(ws, botId, pcm) {
   process.stdout.write(`\r   playing  done (${(pcm.length / 2 / SEND_RATE).toFixed(1)}s)          \n`);
 }
 
-async function record({ meetingLink, audioPath, referencePath, port }) {
+async function record({ meetingLink, audioPath, referencePath, port, liveProvider }) {
   const pcm = await decodeToPcm(audioPath, SEND_RATE);
   const clipSeconds = pcm.length / 2 / SEND_RATE;
   console.log(`  Clip       ${audioPath} (${clipSeconds.toFixed(1)}s)`);
@@ -129,10 +130,12 @@ async function record({ meetingLink, audioPath, referencePath, port }) {
       meeting_link: meetingLink,
       bot_name: "Benchmark Recorder",
       video_required: false,
-      // Meeting captions, not the MeetStream engine: MeetStream allows its
-      // engine once per bot, and that run belongs to the benchmark, where
-      // it is timed like every other provider.
-      recording_config: { transcript: { provider: { meeting_captions: {} } } },
+      // Meeting captions by default: MeetStream runs each provider once per
+      // recording, and those runs belong to the benchmark, where they are
+      // timed. --live-provider spends one provider's run here instead, for a
+      // provider the re-transcribe endpoint will not run (AssemblyAI, as of
+      // 2026-09-28); the benchmark then scores this live transcript for it.
+      recording_config: { transcript: { provider: liveProvider ? PROVIDERS[liveProvider] : { meeting_captions: {} } } },
     });
     bots.listener = listener.bot_id ?? listener.id;
     console.log(`  Listener bot ${bots.listener}`);
@@ -161,6 +164,7 @@ async function record({ meetingLink, audioPath, referencePath, port }) {
       speaker_bot_id: bots.speaker,
       meeting_platform: new URL(meetingLink).hostname,
       played_at: playedAt,
+      live_provider: liveProvider ?? "meeting_captions",
       clip: { path: path.relative(process.cwd(), audioPath), sha256: sha256File(audioPath), seconds: +clipSeconds.toFixed(3) },
       reference: { path: path.relative(process.cwd(), referencePath), sha256: sha256File(referencePath) },
     };

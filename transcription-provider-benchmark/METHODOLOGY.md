@@ -67,6 +67,15 @@ Before alignment, the same normalisation is applied to both the reference and ea
    - numbers over 12 digits are read digit by digit
 6. The fillers um, uh, hmm, mm, mhm, mmm and erm are dropped, since a reader never says them.
 
+**Only the clip is scored.** The listener records from the moment it joins, so anything said in the room before the clip starts (for example while the speaker bot waits to be admitted) or after it ends is in every transcript. It would otherwise count as insertion errors, and it would hit hardest the providers most willing to transcribe background speech. Before scoring, each transcript is cut to the clip ([src/wer.js](src/wer.js) `clipWindow`):
+
+- The clip's edges are the first and last runs of 3 consecutive words the provider got right.
+- Before the first run, the provider keeps as many words as the reference has there, so mistakes on the clip's opening words still count. Anything earlier is outside the clip. The end is handled the same way.
+- Talk *during* the clip is not cut, and counts as insertions.
+- If a transcript has no run of 3 correct words, nothing is cut.
+
+The cost of this rule: a genuine insertion right at the very start or end of the clip isn't counted. `results.md` shows how many words were cut per provider and the untrimmed WER beside the trimmed one, and `score_jiwer.py` applies the same rule on jiwer's own alignment. On a recording made in a quiet room nothing is cut, and both figures match.
+
 Speaker labels are ignored: this measures which words were heard, not who said them. Segments are put in start-time order before joining.
 
 **Checking the scorer.** [scripts/score_jiwer.py](scripts/score_jiwer.py) shares no code with the Node scorer. It re-scores the same raw transcripts with [jiwer](https://github.com/jitsi/jiwer) and OpenAI Whisper's `EnglishTextNormalizer`, the combination most ASR papers use. During development:
@@ -87,6 +96,7 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 ## Limitations
 
 - **Not meeting speech.** The default clip is read English. Conversational speech, accents, crosstalk, jargon and code-switching all change WER and can change rankings. To measure those, use `--audio` and `--reference` with your own recording and a verbatim transcript.
+- **Background speech during the clip still counts.** Keep the room silent while the clip plays.
 - **Small sample.** One word is 0.24 points of WER on 420 reference words. Treat gaps under about 2 points as a tie unless they hold across several clips.
 - **One platform per recording.** Google Meet, Zoom and Teams process audio differently. Record once per platform if that matters to you.
 - **Default configs.** Providers can often do better with vocabulary hints or tuned settings. The table shows out-of-the-box behaviour through MeetStream.

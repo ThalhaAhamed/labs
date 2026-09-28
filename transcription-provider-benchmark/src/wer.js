@@ -193,4 +193,49 @@ function wer(reference, hypothesis) {
   };
 }
 
-module.exports = { normalize, wer, numberToWords };
+/**
+ * Cuts away whatever the provider transcribed before the clip started and
+ * after it ended, so talk in the room while the bots wait to be admitted is
+ * not scored as the provider's insertion errors.
+ *
+ * The clip's edges are found from the words themselves: the first and last
+ * runs of `anchor` consecutive words the provider got right. Before the first
+ * run the provider keeps as many words as the reference has there, so it is
+ * still charged for mangling the clip's opening words; anything earlier is
+ * outside the clip. The end is handled the same way. The cost of the rule: a
+ * genuine insertion right at either edge is not counted.
+ *
+ * With no anchor at all (a transcript that is mostly wrong) nothing is cut.
+ *
+ *   clipWindow("a b c d", "hello there a b c d bye")
+ *   -> { hypothesis: "a b c d", before: 2, after: 1, anchored: true }
+ */
+function clipWindow(reference, hypothesis, anchor = 3) {
+  const ref = reference ? reference.split(" ").filter(Boolean) : [];
+  const hyp = hypothesis ? hypothesis.split(" ").filter(Boolean) : [];
+
+  // Position in ref and hyp at each alignment step.
+  const steps = [];
+  let ri = 0, hi = 0;
+  for (const a of wer(reference, hypothesis).alignment) {
+    steps.push({ op: a.op, ri, hi });
+    if (a.op !== "I") ri++;
+    if (a.op !== "D") hi++;
+  }
+
+  let first = -1, last = -1, run = 0;
+  for (let k = 0; k < steps.length; k++) {
+    run = steps[k].op === "=" ? run + 1 : 0;
+    if (run >= anchor) {
+      if (first < 0) first = k - anchor + 1;
+      last = k;
+    }
+  }
+  if (first < 0) return { hypothesis: hyp.join(" "), before: 0, after: 0, anchored: false };
+
+  const start = Math.max(0, steps[first].hi - steps[first].ri);
+  const end = Math.min(hyp.length, steps[last].hi + 1 + (ref.length - 1 - steps[last].ri));
+  return { hypothesis: hyp.slice(start, end).join(" "), before: start, after: hyp.length - end, anchored: true };
+}
+
+module.exports = { normalize, wer, clipWindow, numberToWords };

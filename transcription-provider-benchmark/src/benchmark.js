@@ -85,7 +85,7 @@ const sameConfig = (a, b) => {
  * the same recording and config; turnaround is not measured.
  */
 async function reuseEarlierRuns(botId, batch) {
-  const spent = batch.filter(alreadyRun);
+  const spent = batch.filter((j) => alreadyRun(j) || j.status === "NotRun");
   if (!spent.length) return;
   const existing = await api.listTranscriptions(botId).catch(() => []);
   for (const job of spent) {
@@ -94,7 +94,8 @@ async function reuseEarlierRuns(botId, batch) {
       existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id && sameConfig(t.config, inner)) ??
       existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id);
     if (!prior) continue;
-    job.note = `already run on this bot (${job.error.replace(/^HTTP 409: /, "")}); scored the earlier transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}${sameConfig(prior.config, inner) ? "" : ` whose config was ${JSON.stringify(prior.config)}`}, turnaround not measured`;
+    const why = alreadyRun(job) ? "already run on this bot" : "the transcribe endpoint refused it";
+    job.note = `${why} (${job.error.replace(/^HTTP \d+: /, "")}); scored the earlier transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}${sameConfig(prior.config, inner) ? "" : ` whose config was ${JSON.stringify(prior.config)}`}, turnaround not measured`;
     job.status = "Success";
     job.transcript_id = prior.transcript_id;
     job.reused = true;
