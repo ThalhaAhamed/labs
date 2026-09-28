@@ -1,0 +1,500 @@
+{
+  "run_id": "2026-09-28T16-57-03Z",
+  "bot_id": "644b1e47-5f57-4f34-a1af-70ab153e9552",
+  "reference_words": 420,
+  "clip_seconds": 191.435,
+  "poll_seconds": 5,
+  "normalizer": "src/wer.js normalize() (see METHODOLOGY.md)",
+  "providers": [
+    {
+      "provider": "meetstream",
+      "ran": true,
+      "rounds": 1,
+      "succeeded": 1,
+      "failed_rounds": [],
+      "notes": [],
+      "wer": 0.02142857142857143,
+      "wer_per_round": [
+        0.0214
+      ],
+      "substitutions": 7,
+      "deletions": 2,
+      "insertions": 0,
+      "reference_words": 420,
+      "outside_clip_words": 0,
+      "clip_found": true,
+      "wer_untrimmed": 0.02142857142857143,
+      "turnaround_median_s": 13.69,
+      "turnaround_min_s": 13.69,
+      "turnaround_max_s": 13.69,
+      "real_time_factor": 0.07151252383315486,
+      "errors": [
+        {
+          "op": "S",
+          "ref": "linnell's",
+          "hyp": "l'enel's"
+        },
+        {
+          "op": "D",
+          "ref": "up",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "guards",
+          "hyp": "upguards"
+        },
+        {
+          "op": "D",
+          "ref": "at",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "em",
+          "hyp": "adam"
+        },
+        {
+          "op": "S",
+          "ref": "birket",
+          "hyp": "burkett"
+        },
+        {
+          "op": "S",
+          "ref": "the",
+          "hyp": "a"
+        },
+        {
+          "op": "S",
+          "ref": "recognising",
+          "hyp": "recognizing"
+        },
+        {
+          "op": "S",
+          "ref": "were",
+          "hyp": "are"
+        }
+      ],
+      "config": {
+        "meetstream": {
+          "language": "auto",
+          "translate": false
+        }
+      }
+    },
+    {
+      "provider": "jigsawstack",
+      "ran": true,
+      "rounds": 1,
+      "succeeded": 1,
+      "failed_rounds": [],
+      "notes": [],
+      "wer": 0.02142857142857143,
+      "wer_per_round": [
+        0.0214
+      ],
+      "substitutions": 7,
+      "deletions": 2,
+      "insertions": 0,
+      "reference_words": 420,
+      "outside_clip_words": 0,
+      "clip_found": true,
+      "wer_untrimmed": 0.02142857142857143,
+      "turnaround_median_s": 7.88,
+      "turnaround_min_s": 7.88,
+      "turnaround_max_s": 7.88,
+      "real_time_factor": 0.0411627967717502,
+      "errors": [
+        {
+          "op": "S",
+          "ref": "linnell's",
+          "hyp": "l'enel's"
+        },
+        {
+          "op": "D",
+          "ref": "up",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "guards",
+          "hyp": "upguards"
+        },
+        {
+          "op": "D",
+          "ref": "at",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "em",
+          "hyp": "adam"
+        },
+        {
+          "op": "S",
+          "ref": "birket",
+          "hyp": "burkett"
+        },
+        {
+          "op": "S",
+          "ref": "the",
+          "hyp": "a"
+        },
+        {
+          "op": "S",
+          "ref": "recognising",
+          "hyp": "recognizing"
+        },
+        {
+          "op": "S",
+          "ref": "were",
+          "hyp": "are"
+        }
+      ],
+      "config": {
+        "jigsawstack": {
+          "language": "en",
+          "translate": false
+        }
+      }
+    },
+    {
+      "provider": "assemblyai",
+      "ran": true,
+      "rounds": 1,
+      "succeeded": 1,
+      "failed_rounds": [],
+      "notes": [
+        "the transcribe endpoint refused it ({\"error\":\"No API key configured for provider 'assemblyai'. Please add your assemblyai API key in the integrations settings.\"}); scored the earlier transcript 7e1df053-3d67-495e-8d7f-47da0284b036 from 2026-09-28T16:53:02Z, turnaround not measured"
+      ],
+      "wer": 0.02857142857142857,
+      "wer_per_round": [
+        0.0286
+      ],
+      "substitutions": 8,
+      "deletions": 2,
+      "insertions": 2,
+      "reference_words": 420,
+      "outside_clip_words": 0,
+      "clip_found": true,
+      "wer_untrimmed": 0.02857142857142857,
+      "turnaround_median_s": null,
+      "turnaround_min_s": null,
+      "turnaround_max_s": null,
+      "real_time_factor": null,
+      "errors": [
+        {
+          "op": "D",
+          "ref": "at",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "em",
+          "hyp": "atom"
+        },
+        {
+          "op": "S",
+          "ref": "birket",
+          "hyp": "burke"
+        },
+        {
+          "op": "I",
+          "ref": null,
+          "hyp": "dare"
+        },
+        {
+          "op": "S",
+          "ref": "the",
+          "hyp": "a"
+        },
+        {
+          "op": "D",
+          "ref": "michael",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "angelo",
+          "hyp": "michelangelo"
+        },
+        {
+          "op": "S",
+          "ref": "mantel",
+          "hyp": "mental"
+        },
+        {
+          "op": "I",
+          "ref": null,
+          "hyp": "he"
+        },
+        {
+          "op": "S",
+          "ref": "recognising",
+          "hyp": "recognizing"
+        },
+        {
+          "op": "S",
+          "ref": "were",
+          "hyp": "are"
+        },
+        {
+          "op": "S",
+          "ref": "while",
+          "hyp": "all"
+        }
+      ],
+      "config": {
+        "assemblyai": {
+          "speech_models": [
+            "universal-2"
+          ],
+          "language_code": "en_us"
+        }
+      }
+    },
+    {
+      "provider": "deepgram",
+      "ran": true,
+      "rounds": 1,
+      "succeeded": 1,
+      "failed_rounds": [],
+      "notes": [],
+      "wer": 0.03571428571428571,
+      "wer_per_round": [
+        0.0357
+      ],
+      "substitutions": 11,
+      "deletions": 4,
+      "insertions": 0,
+      "reference_words": 420,
+      "outside_clip_words": 0,
+      "clip_found": true,
+      "wer_untrimmed": 0.03571428571428571,
+      "turnaround_median_s": 7.88,
+      "turnaround_min_s": 7.88,
+      "turnaround_max_s": 7.88,
+      "real_time_factor": 0.0411627967717502,
+      "errors": [
+        {
+          "op": "D",
+          "ref": "up",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "guards",
+          "hyp": "upguards"
+        },
+        {
+          "op": "D",
+          "ref": "at",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "em",
+          "hyp": "adam"
+        },
+        {
+          "op": "S",
+          "ref": "idylls",
+          "hyp": "idols"
+        },
+        {
+          "op": "S",
+          "ref": "birket",
+          "hyp": "burkitt"
+        },
+        {
+          "op": "S",
+          "ref": "carker",
+          "hyp": "parker"
+        },
+        {
+          "op": "S",
+          "ref": "fact",
+          "hyp": "effect"
+        },
+        {
+          "op": "S",
+          "ref": "the",
+          "hyp": "a"
+        },
+        {
+          "op": "D",
+          "ref": "michael",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "angelo",
+          "hyp": "michelangelo"
+        },
+        {
+          "op": "S",
+          "ref": "mantel",
+          "hyp": "mantle"
+        },
+        {
+          "op": "S",
+          "ref": "recognising",
+          "hyp": "recognizing"
+        },
+        {
+          "op": "D",
+          "ref": "m",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "a",
+          "hyp": "ma"
+        }
+      ],
+      "config": {
+        "deepgram": {
+          "model": "nova-3",
+          "language": "en"
+        }
+      }
+    },
+    {
+      "provider": "sarvam",
+      "ran": true,
+      "rounds": 1,
+      "succeeded": 1,
+      "failed_rounds": [],
+      "notes": [],
+      "wer": 0.05,
+      "wer_per_round": [
+        0.05
+      ],
+      "substitutions": 16,
+      "deletions": 5,
+      "insertions": 0,
+      "reference_words": 420,
+      "outside_clip_words": 0,
+      "clip_found": true,
+      "wer_untrimmed": 0.05,
+      "turnaround_median_s": 19.76,
+      "turnaround_min_s": 19.76,
+      "turnaround_max_s": 19.76,
+      "real_time_factor": 0.10322041423982031,
+      "errors": [
+        {
+          "op": "S",
+          "ref": "leighton's",
+          "hyp": "layton's"
+        },
+        {
+          "op": "S",
+          "ref": "linnell's",
+          "hyp": "linell's"
+        },
+        {
+          "op": "D",
+          "ref": "up",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "guards",
+          "hyp": "upguards"
+        },
+        {
+          "op": "D",
+          "ref": "at",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "em",
+          "hyp": "adam"
+        },
+        {
+          "op": "S",
+          "ref": "jingo",
+          "hyp": "jingle"
+        },
+        {
+          "op": "S",
+          "ref": "birket",
+          "hyp": "burkett"
+        },
+        {
+          "op": "S",
+          "ref": "carker",
+          "hyp": "karkar"
+        },
+        {
+          "op": "S",
+          "ref": "on",
+          "hyp": "in"
+        },
+        {
+          "op": "S",
+          "ref": "in",
+          "hyp": "an"
+        },
+        {
+          "op": "D",
+          "ref": "finish",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "in",
+          "hyp": "finishing"
+        },
+        {
+          "op": "S",
+          "ref": "the",
+          "hyp": "a"
+        },
+        {
+          "op": "D",
+          "ref": "michael",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "angelo",
+          "hyp": "michelangelo"
+        },
+        {
+          "op": "D",
+          "ref": "mantel",
+          "hyp": null
+        },
+        {
+          "op": "S",
+          "ref": "board",
+          "hyp": "mantelboard"
+        },
+        {
+          "op": "S",
+          "ref": "recognising",
+          "hyp": "recognizing"
+        },
+        {
+          "op": "S",
+          "ref": "felicitous",
+          "hyp": "felicitor's"
+        },
+        {
+          "op": "S",
+          "ref": "phases",
+          "hyp": "faces"
+        }
+      ],
+      "config": {
+        "sarvam": {
+          "model": "saaras:v3",
+          "mode": "transcribe",
+          "language_code": "en-IN"
+        }
+      }
+    }
+  ]
+}

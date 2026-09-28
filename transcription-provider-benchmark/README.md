@@ -2,11 +2,22 @@
 
 This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
 
-| Provider | WER | Sub | Del | Ins | Turnaround (median) | Range | × real time |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| … | | | | | | | |
+Latest run, [results/2026-09-28T16-57-03Z](results/2026-09-28T16-57-03Z/results.md): Google Meet, the 191 s sample clip (420 reference words), one recording sent to every provider.
 
-The results table comes from `npm run benchmark`. This repo publishes no numbers yet. The first published run will link here with its complete `results/` directory.
+| Provider | WER | Sub / Del / Ins | Turnaround | × real time |
+|---|---:|---:|---:|---:|
+| meetstream | 2.1% | 7 / 2 / 0 | 13.7 s | 0.07× |
+| jigsawstack | 2.1% | 7 / 2 / 0 | 7.9 s | 0.04× |
+| assemblyai | 2.9% | 8 / 2 / 2 | – | – |
+| deepgram | 3.6% | 11 / 4 / 0 | 7.9 s | 0.04× |
+| sarvam | 5.0% | 16 / 5 / 0 | 19.8 s | 0.10× |
+
+How to read this:
+
+- **The sample is small.** One word is 0.24 points of WER, so treat gaps under about 2 points as ties.
+- **Turnaround is one sample per provider**, polled every 5 s.
+- **AssemblyAI has no turnaround.** MeetStream's re-transcribe endpoint refused it on 2026-09-28, so it was scored from the live transcript the recording bot made (`--live-provider assemblyai`).
+- **Every provider's raw transcript is in the results folder.** To re-score it yourself, see [Reproducing a result](METHODOLOGY.md#reproducing-a-result).
 
 **Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.
 

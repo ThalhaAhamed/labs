@@ -104,7 +104,7 @@ function score(runDir) {
 function renderMarkdown(run, results) {
   const L = [];
   L.push(`# Transcription provider benchmark: ${run.run_id}`, "");
-  L.push(`- Recording: bot \`${run.bot.id}\`${run.recording ? ` on ${run.recording.meeting_platform}, clip \`${run.recording.clip.path}\` (${run.recording.clip.seconds}s, sha256 \`${run.recording.clip.sha256.slice(0, 12)}…\`)` : ""}`);
+  L.push(`- Recording: bot \`${run.bot.id}\`${run.recording ? ` on ${run.recording.meeting_platform}, clip \`${run.recording.clip.path.replace(/\\/g, "/")}\` (${run.recording.clip.seconds}s, sha256 \`${run.recording.clip.sha256.slice(0, 12)}…\`)` : ""}`);
   L.push(`- Reference: ${results.reference_words} words after normalisation (sha256 \`${run.reference.sha256.slice(0, 12)}…\`)`);
   L.push(`- Rounds: ${run.rounds}, all providers submitted together each round; turnaround polled every ${results.poll_seconds}s`);
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");

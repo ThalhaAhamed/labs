@@ -165,8 +165,8 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
       meeting_platform: new URL(meetingLink).hostname,
       played_at: playedAt,
       live_provider: liveProvider ?? "meeting_captions",
-      clip: { path: path.relative(process.cwd(), audioPath), sha256: sha256File(audioPath), seconds: +clipSeconds.toFixed(3) },
-      reference: { path: path.relative(process.cwd(), referencePath), sha256: sha256File(referencePath) },
+      clip: { path: path.relative(process.cwd(), audioPath).split(path.sep).join("/"), sha256: sha256File(audioPath), seconds: +clipSeconds.toFixed(3) },
+      reference: { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) },
     };
     fs.mkdirSync("recordings", { recursive: true });
     const out = path.join("recordings", `${bots.listener}.json`);
