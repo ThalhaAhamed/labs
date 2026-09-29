@@ -10,6 +10,7 @@
 <body>
   <header class="top">
     <div class="brand">
+      <img src="favicon.png" alt="" width="20" height="20">
       <h1>Transcriber Benchmark</h1>
     </div>
     <button class="pill" id="keysButton" type="button">
@@ -19,7 +20,7 @@
 
   <div class="layout">
     <nav class="side" aria-label="Runs">
-      <button class="primary wide" id="newRun" type="button">+ New run</button>
+      <button class="primary wide" id="newRun" type="button"><span aria-hidden="true">+</span> New run</button>
       <h2 class="side-title">Past runs</h2>
       <ul id="runList" class="run-list"><li class="muted">Loading…</li></ul>
     </nav>
@@ -33,7 +34,7 @@
         </div>
 
         <details class="card setup-card" id="setupCard" open>
-          <summary><h3><span class="step">00 · Setup</span>Connect the providers in MeetStream first</h3></summary>
+          <summary><h3><span class="step">!</span>Before you start: connect the providers in MeetStream</h3></summary>
           <p class="hint">MeetStream runs every provider for you, but it needs each one's key. Do this once per MeetStream account.</p>
           <ol class="setup-steps">
             <li>Open the <a href="https://app.meetstream.ai" target="_blank" rel="noopener">MeetStream dashboard</a>.</li>
@@ -50,14 +51,14 @@
           <label class="field">MeetStream API key
             <input id="apiKey" type="password" autocomplete="off" placeholder="ms_…">
           </label>
-          <label class="field" id="ngrokField">ngrok authtoken <span class="muted">(only for the speaker bot)</span>
+          <label class="field" id="ngrokField"><span>ngrok authtoken <span class="muted">(only for the speaker bot)</span></span>
             <input id="ngrokToken" type="password" autocomplete="off">
           </label>
           <button class="secondary" id="saveKeys" type="button">Save keys</button>
         </div>
 
         <div class="card">
-          <h3><span class="step">01 · Source</span>Where the audio comes from</h3>
+          <h3><span class="step">1</span>Where the audio comes from</h3>
           <div class="choices" role="radiogroup" aria-label="Audio source">
             <label class="choice"><input type="radio" name="mode" value="existing" checked>
               <strong>A recording that already exists</strong>
@@ -117,7 +118,7 @@
         </div>
 
         <div class="card">
-          <h3><span class="step">02 · Reference</span>What was actually said</h3>
+          <h3><span class="step">2</span>What was actually said</h3>
           <p class="hint">Accuracy (WER) needs a word-for-word transcript. Without one you still get turnaround and cost.</p>
           <div class="choices compact" role="radiogroup" aria-label="Reference transcript">
             <label class="choice" id="scriptRefChoice" hidden><input type="radio" name="reference" value="script">
@@ -140,7 +141,7 @@
         </div>
 
         <div class="card">
-          <h3><span class="step">03 · Providers</span>Who transcribes it</h3>
+          <h3><span class="step">3</span>Who transcribes it</h3>
           <div id="providerList" class="providers"></div>
           <p class="hint" id="pricesNote"></p>
         </div>
@@ -154,7 +155,7 @@
       <!-- Live run -->
       <section id="liveView" class="view" hidden>
         <div>
-          <span class="label step">Live</span>
+          <span class="label">Live</span>
           <h2 class="view-title">Running</h2>
         </div>
         <ol class="stepper" id="stepper"></ol>
@@ -185,7 +186,7 @@
       <section id="resultView" class="view" hidden>
         <div class="result-head">
           <div>
-            <span class="label accent">Benchmark result</span>
+            <span class="label">Benchmark result</span>
             <h2 class="view-title" id="resultTitle">Results</h2>
           </div>
           <div class="downloads" id="downloads"></div>
