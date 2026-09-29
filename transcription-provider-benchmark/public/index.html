@@ -148,7 +148,13 @@
             </div>
           </div>
           <p class="live-message" id="liveMessage"></p>
-          <div id="providerProgress" class="chips"></div>
+        </div>
+        <div class="card board-card" id="boardCard" hidden>
+          <div class="card-head">
+            <div><span class="label">Timing board</span><h3>Every provider, same recording, same start</h3></div>
+            <span class="clock" id="boardClock">0.0 s</span>
+          </div>
+          <ol class="board" id="board"></ol>
         </div>
         <details class="card log" open>
           <summary>Log</summary>
@@ -160,20 +166,31 @@
       <section id="resultView" class="view" hidden>
         <div class="result-head">
           <div>
-            <span class="label">Result</span>
+            <span class="label accent">Benchmark result</span>
             <h2 class="view-title" id="resultTitle">Results</h2>
-            <p class="lede" id="resultMeta"></p>
           </div>
           <div class="downloads" id="downloads"></div>
         </div>
+        <dl class="specs" id="specs"></dl>
         <div class="summary" id="summaryCards"></div>
+
         <div class="card table-card">
-          <table id="resultTable"></table>
+          <div class="card-head">
+            <div><span class="label">Leaderboard</span><h3 id="boardTitle">Ranked by accuracy</h3></div>
+            <span class="hint" id="rankHint"></span>
+          </div>
+          <div class="table-scroll"><table id="resultTable"></table></div>
           <p class="hint" id="tableNotes"></p>
         </div>
+
+        <div class="charts" id="charts"></div>
         <div id="notes"></div>
-        <h3 class="section-title">Provider detail</h3>
+
+        <div class="card-head plain">
+          <div><span class="label">Detail</span><h3>What each provider got wrong</h3></div>
+        </div>
         <div id="details"></div>
+        <div class="tooltip" id="tooltip" role="status" hidden></div>
       </section>
     </main>
   </div>

@@ -222,7 +222,9 @@ function follow(jobId, m) {
   currentJob = { id: jobId, mode: m };
   show("liveView");
   $("#log").textContent = "";
-  $("#providerProgress").replaceChildren();
+  $("#board").replaceChildren();
+  $("#boardCard").hidden = true;
+  boardStoppedAt = null;
   $("#botChips").replaceChildren();
   renderState({ phase: "starting", bots: {} });
   source?.close();
@@ -271,11 +273,51 @@ function renderState(s) {
       el("b", {}, role === "recorder" ? "Recorder" : "Speaker"), st ?? "created", el("span", { class: "muted" }, id.slice(0, 8))));
   }
   $("#botChips").replaceChildren(...chips);
-  $("#providerProgress").replaceChildren(...Object.entries(s.providers ?? {}).map(([p, st]) =>
-    el("span", { class: `chip ${st === "Success" ? "ok" : "bad"}` }, el("b", {}, nameOf(p)), st === "Success" ? "done" : st)));
+  lastState = s;
+  renderBoard();
 
   $("#stopRecording").hidden = !(m === "recorder" && s.phase === "recording");
   $("#cancelRun").hidden = ["done", "failed"].includes(s.phase);
+}
+
+// Timing board: one lane per provider, a running clock from the moment they
+// were all submitted, each lane stopping at that provider's turnaround.
+let lastState = null;
+let boardTimer = null;
+let boardStoppedAt = null;
+function renderBoard() {
+  const s = lastState;
+  const lanes = s?.lanes ?? [];
+  const card = $("#boardCard");
+  if (!lanes.length || !s.submittedAt) { card.hidden = true; return; }
+  card.hidden = false;
+  const results = s.providers ?? {};
+  // The clock stops once every lane has an outcome (or the run is over).
+  const settled = ["done", "failed"].includes(s.phase) || lanes.every((p) => results[p]);
+  if (settled && !boardStoppedAt) boardStoppedAt = Date.now();
+  if (!settled) boardStoppedAt = null;
+  const elapsed = ((boardStoppedAt ?? Date.now()) - s.submittedAt) / 1000;
+  const finished = settled;
+  const times = Object.values(results).map((r) => r.seconds).filter((t) => t != null);
+  const scale = Math.max(finished ? 0 : elapsed, ...times, 10);
+  const fastest = times.length ? Math.min(...times) : null;
+  $("#boardClock").textContent = `${(finished && times.length ? Math.max(...times) : elapsed).toFixed(1)} s`;
+  $("#boardClock").title = finished ? "Slowest provider's turnaround" : "Time since every provider was submitted";
+  $("#board").replaceChildren(...lanes.map((p) => {
+    const r = results[p];
+    const state = !r ? "running" : r.status === "Success" ? "done" : r.status === "Reused" ? "reused" : "failed";
+    const t = r?.seconds ?? (state === "running" && !finished ? elapsed : null);
+    const label = state === "running" ? (finished ? "–" : `${elapsed.toFixed(1)} s`)
+      : state === "done" ? `${r.seconds.toFixed(1)} s`
+      : state === "reused" ? "earlier run"
+      : r.status === "NotRun" ? "not run" : r.status.toLowerCase();
+    return el("li", { class: `lane ${state} ${state === "done" && r.seconds === fastest ? "first" : ""}` },
+      el("span", { class: "who" }, nameOf(p)),
+      el("span", { class: "bar", "aria-hidden": "true" }, el("i", { style: `width:${t == null ? 0 : Math.min(100, (t / scale) * 100)}%` })),
+      el("span", { class: "t" }, label, r?.detail && state === "failed" ? el("small", { title: r.detail }, r.detail) : null));
+  }));
+  clearInterval(boardTimer);
+  if (!finished && lanes.some((p) => !results[p])) boardTimer = setInterval(renderBoard, 200);
 }
 
 $("#stopRecording").addEventListener("click", async (e) => {
@@ -303,6 +345,106 @@ async function loadRuns() {
 }
 
 // ── Results ─────────────────────────────────────────────────────────────────
+//
+// A leaderboard (rank + every metric with an in-cell bar, best in orange with
+// a BEST badge, the rest gray) and trade-off scatter plots where lower-left
+// wins. The table is also the accessible view of every number the charts show.
+
+const SVG = "http://www.w3.org/2000/svg";
+const svg = (tag, attrs = {}, text) => {
+  const n = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v);
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+const tooltip = () => $("#tooltip");
+function showTip(evt, name, rows) {
+  const tip = tooltip();
+  tip.replaceChildren(el("div", { class: "tt-name" }, name), ...rows.map(([k, v]) => el("div", { class: "tt-row" }, el("span", {}, k), el("b", {}, v))));
+  tip.hidden = false;
+  const r = evt.target.getBoundingClientRect?.() ?? { left: evt.clientX, top: evt.clientY, width: 0 };
+  const x = Math.min(window.innerWidth - tip.offsetWidth - 12, Math.max(12, r.left + r.width / 2 - tip.offsetWidth / 2));
+  const y = r.top - tip.offsetHeight - 10 < 8 ? r.bottom + 10 : r.top - tip.offsetHeight - 10;
+  tip.style.left = `${x}px`;
+  tip.style.top = `${y}px`;
+}
+const hideTip = () => { tooltip().hidden = true; };
+
+/** Clean axis ticks: 0 .. max rounded up to a 1/2/5 step. */
+function ticks(max, count = 4) {
+  if (!(max > 0)) return [0, 1];
+  const raw = max / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+  const out = [];
+  for (let v = 0; v <= max + step * 0.001; v += step) out.push(+v.toFixed(10));
+  if (out[out.length - 1] < max) out.push(+(out[out.length - 1] + step).toFixed(10));
+  return out;
+}
+
+/**
+ * Scatter of two lower-is-better metrics. Points are one de-emphasis gray,
+ * the provider best on both in orange; every point is direct-labelled, so
+ * identity never rests on color.
+ */
+function tradeoff({ title, sub, rows, x, y }) {
+  const pts = rows.filter((r) => x.get(r) != null && y.get(r) != null);
+  const card = el("div", { class: "card chart" },
+    el("div", { class: "card-head" }, el("div", {}, el("span", { class: "label" }, "Trade-off"), el("h3", {}, title)), el("span", { class: "hint" }, sub)));
+  const missing = rows.filter((r) => !pts.includes(r)).map((r) => nameOf(r.provider));
+  if (pts.length < 2) {
+    card.append(el("p", { class: "missing" }, "Not enough measured values to plot."));
+    return card;
+  }
+
+  const W = 520, H = 310, m = { l: 52, r: 24, t: 30, b: 44 };
+  const xs = ticks(Math.max(...pts.map(x.get)) * 1.1), ys = ticks(Math.max(...pts.map(y.get)) * 1.15);
+  const X = (v) => m.l + (v / xs[xs.length - 1]) * (W - m.l - m.r);
+  const Y = (v) => H - m.b - (v / ys[ys.length - 1]) * (H - m.t - m.b);
+  const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${title}: ${pts.map((p) => `${nameOf(p.provider)} ${x.fmt(x.get(p))}, ${y.fmt(y.get(p))}`).join("; ")}` });
+
+  for (const v of ys) {
+    root.append(svg("line", { class: v === 0 ? "axis" : "gridline", x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }));
+    root.append(svg("text", { class: "tick", x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, y.tick(v)));
+  }
+  for (const v of xs) {
+    root.append(svg("line", { class: v === 0 ? "axis" : "gridline", y1: m.t, y2: H - m.b, x1: X(v), x2: X(v) }));
+    root.append(svg("text", { class: "tick", x: X(v), y: H - m.b + 18, "text-anchor": "middle" }, x.tick(v)));
+  }
+  root.append(svg("text", { class: "axis-title", x: W - m.r, y: H - 6, "text-anchor": "end" }, `${x.label} →`));
+  root.append(svg("text", { class: "axis-title", x: m.l - 8, y: m.t - 14, "text-anchor": "start" }, `↑ ${y.label}`));
+  root.append(svg("text", { class: "better", x: m.l + 8, y: H - m.b - 8 }, "↙ better"));
+
+  // The provider that is best on both axes, if one is.
+  const bx = Math.min(...pts.map(x.get)), by = Math.min(...pts.map(y.get));
+  const placed = [];
+  const fits = (b) => b.x >= 0 && b.x + b.w <= W && b.y >= 0 && b.y + b.h <= H - m.b &&
+    placed.every((o) => b.x + b.w < o.x || o.x + o.w < b.x || b.y + b.h < o.y || o.y + o.h < b.y);
+  for (const p of [...pts].sort((a, b) => y.get(a) - y.get(b))) {
+    const cx = X(x.get(p)), cy = Y(y.get(p));
+    const best = x.get(p) === bx && y.get(p) === by;
+    const g = svg("g");
+    const hit = svg("circle", { class: "hit", cx, cy, r: 14, tabindex: 0, role: "button", "aria-label": `${nameOf(p.provider)}: ${x.label} ${x.fmt(x.get(p))}, ${y.label} ${y.fmt(y.get(p))}` });
+    const rows2 = [[y.label, y.fmt(y.get(p))], [x.label, x.fmt(x.get(p))]];
+    hit.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), rows2));
+    hit.addEventListener("focus", (e) => showTip(e, nameOf(p.provider), rows2));
+    hit.addEventListener("pointerleave", hideTip);
+    hit.addEventListener("blur", hideTip);
+    g.append(hit, svg("circle", { class: `pt ${best ? "best" : ""}`, cx, cy, r: 6 }));
+
+    // Direct label: right, left, above, below, whichever is free.
+    const text = nameOf(p.provider), w = text.length * 7 + 4, h = 14;
+    const spots = [[cx + 10, cy - 7, "start"], [cx - 10 - w, cy - 7, "start"], [cx - w / 2, cy - 24, "start"], [cx - w / 2, cy + 10, "start"]];
+    const spot = spots.find(([sx, sy]) => fits({ x: sx, y: sy, w, h })) ?? spots[0];
+    placed.push({ x: spot[0], y: spot[1], w, h });
+    g.append(svg("text", { class: "pt-label", x: spot[0], y: spot[1] + 11 }, text));
+    root.append(g);
+  }
+  card.append(root);
+  if (missing.length) card.append(el("p", { class: "missing" }, `Not plotted (not measured in this run): ${missing.join(", ")}.`));
+  return card;
+}
 
 let sortState = null;
 
@@ -312,81 +454,120 @@ async function showRun(id) {
   $$("#runList button").forEach((b) => b.toggleAttribute("aria-current", b.dataset.run === id));
   const { results, recording } = data;
   const scored = results.reference_words != null;
-  const when = data.started_at ? new Date(data.started_at).toLocaleString() : id;
+  const ran = results.providers.filter((p) => p.ran);
 
   $("#resultTitle").textContent = scored ? "Accuracy, speed and cost" : "Speed and cost";
-  const where = recording
-    ? `${recording.bot_name ? `"${recording.bot_name}" ` : ""}on ${recording.meeting_platform}, ${recording.clip ? `clip ${recording.clip.path} (${recording.clip.seconds}s)` : "live speech"}`
-    : `bot ${results.bot_id}`;
-  $("#resultMeta").textContent = `${when} · ${where} · ${scored ? `${results.reference_words}-word reference` : "no reference transcript"}${results.billed_audio_seconds ? ` · ${(results.billed_audio_seconds / 60).toFixed(2)} min billed audio` : ""}`;
+  const when = data.started_at ? new Date(data.started_at) : null;
+  const specs = [
+    ["Run", when ? when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : id],
+    ["Audio", recording?.clip ? `${recording.clip.path.split("/").pop()} · ${recording.clip.seconds.toFixed(0)} s clip` : recording ? `Live speech${recording.bot_name ? ` · ${recording.bot_name}` : ""}` : "Existing recording"],
+    ["Billed audio", results.billed_audio_seconds ? `${(results.billed_audio_seconds / 60).toFixed(2)} min` : "–"],
+    ["Reference", scored ? `${results.reference_words} words` : "None (speed and cost only)"],
+    ["Platform", recording?.meeting_platform ?? "–"],
+    ["Providers", `${ran.length} of ${results.providers.length} ran`],
+  ];
+  $("#specs").replaceChildren(...specs.map(([k, v]) => el("div", {}, el("dt", {}, k), el("dd", { title: v }, v))));
   $("#downloads").replaceChildren(
-    el("a", { class: "secondary", href: `/api/runs/${id}/download/results.md` }, "results.md"),
-    el("a", { class: "secondary", href: `/api/runs/${id}/download/results.json` }, "results.json"));
+    el("a", { class: "secondary", href: `/api/runs/${id}/download/results.md` }, "↓ results.md"),
+    el("a", { class: "secondary", href: `/api/runs/${id}/download/results.json` }, "↓ results.json"));
 
-  const ran = results.providers.filter((p) => p.ran);
-  const best = (key, pick = Math.min) => {
-    const vals = ran.map((p) => p[key]).filter((v) => v != null);
-    return vals.length ? pick(...vals) : null;
+  // Metrics: lower is better except words transcribed.
+  const metrics = [
+    ...(scored ? [{ key: "wer", label: "WER", sub: "lower is better", fmt: pct }] : [{ key: "words", label: "Words", sub: "more captured", fmt: (v) => String(v), higher: true }]),
+    { key: "turnaround_median_s", label: "Turnaround", sub: "lower is better", fmt: secs },
+    { key: "cost_usd", label: "Cost", sub: "this recording", fmt: usd },
+  ];
+  const bestOf = (m) => {
+    const vals = ran.map((p) => p[m.key]).filter((v) => v != null);
+    return vals.length ? (m.higher ? Math.max : Math.min)(...vals) : null;
   };
-  const bests = {
-    wer: best("wer"),
-    turnaround_median_s: best("turnaround_median_s"),
-    cost_usd: best("cost_usd"),
-    words: best("words", Math.max),
-  };
-  const who = (key, v) => (v == null ? "not measured" : ran.filter((p) => p[key] === v).map((p) => nameOf(p.provider)).join(", "));
-  const cards = [];
-  if (scored) cards.push(["Most accurate", pct(bests.wer), who("wer", bests.wer)]);
-  else cards.push(["Most words", bests.words ?? "–", who("words", bests.words)]);
-  cards.push(["Fastest", secs(bests.turnaround_median_s), who("turnaround_median_s", bests.turnaround_median_s)]);
-  cards.push(["Cheapest", usd(bests.cost_usd), who("cost_usd", bests.cost_usd)]);
-  $("#summaryCards").replaceChildren(...cards.map(([label, value, name]) =>
-    el("div", { class: "stat" }, el("div", { class: "label" }, label), el("div", { class: "value" }, value), el("div", { class: "who" }, name || "–"))));
+  const maxOf = (m) => Math.max(0, ...ran.map((p) => p[m.key] ?? 0));
+  for (const m of metrics) { m.best = bestOf(m); m.max = maxOf(m); }
+
+  const who = (m) => (m.best == null ? "not measured" : ran.filter((p) => p[m.key] === m.best).map((p) => nameOf(p.provider)).join(", "));
+  $("#summaryCards").replaceChildren(...metrics.map((m) =>
+    el("div", { class: "stat" },
+      el("div", { class: "label" }, m.key === "wer" ? "Most accurate" : m.key === "words" ? "Most words captured" : m.key === "cost_usd" ? "Cheapest" : "Fastest"),
+      el("div", { class: "value" }, m.best == null ? "–" : m.fmt(m.best)),
+      el("div", { class: "who" }, who(m)))));
+
+  // Rank by the headline metric (accuracy, or speed when there's no reference).
+  const primary = metrics[0].higher ? metrics[1] : metrics[0];
+  const rankOrder = [...ran].sort((a, b) => (a[primary.key] ?? Infinity) - (b[primary.key] ?? Infinity));
+  // Standard competition ranking: equal scores share a rank (01, 01, 03).
+  const score = (p) => p[primary.key] ?? Infinity;
+  const rankOf = new Map(rankOrder.map((p) => [p.provider, 1 + ran.filter((o) => score(o) < score(p)).length]));
+  $("#boardTitle").textContent = `Ranked by ${primary.key === "wer" ? "accuracy" : "turnaround"}`;
+  $("#rankHint").textContent = "Click a column to re-sort. Equal scores share a rank.";
 
   const columns = [
-    ["provider", "Provider", (p) => nameOf(p.provider)],
-    ...(scored
-      ? [["wer", "WER", (p) => pct(p.wer)], ["sdi", "Sub / Del / Ins", (p) => `${p.substitutions} / ${p.deletions} / ${p.insertions}`]]
-      : [["words", "Words", (p) => p.words]]),
-    ["turnaround_median_s", "Turnaround", (p) => secs(p.turnaround_median_s)],
-    ["cost_usd", "Cost", (p) => usd(p.cost_usd)],
-    ["cost_per_hour_usd", "Per hour", (p) => perHour(p.cost_per_hour_usd)],
+    { key: "rank", label: "#", cell: (p) => el("td", { class: "rank" }, p.ran ? String(rankOf.get(p.provider)).padStart(2, "0") : "–") },
+    { key: "provider", label: "Provider", cell: (p) => el("td", { class: "provider-name" }, nameOf(p.provider)) },
+    ...metrics.map((m) => ({
+      key: m.key, label: m.label, sub: m.sub,
+      cell: (p) => {
+        const v = p[m.key];
+        const isBest = v != null && v === m.best;
+        const width = v == null || !m.max ? 0 : Math.max(2, (v / m.max) * 100);
+        const td = el("td", { class: isBest ? "best" : "" },
+          el("div", { class: "metric" },
+            el("span", { class: "num" }, isBest ? el("span", { class: "badge" }, "BEST") : null, isBest ? " " : null, m.fmt(v)),
+            el("div", { class: "track", "aria-hidden": "true" }, el("span", { class: `fill ${isBest ? "best" : ""}`, style: `width:${width}%` }))));
+        td.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), [[m.label, m.fmt(v)], ...(m.best != null && v != null && !isBest ? [["vs best", m.higher ? `${v - m.best}` : `${(v / m.best).toFixed(1)}×`]] : [])]));
+        td.addEventListener("pointerleave", hideTip);
+        return td;
+      },
+    })),
+    { key: "cost_per_hour_usd", label: "Per hour", sub: "published rate", cell: (p) => el("td", {}, perHour(p.cost_per_hour_usd)) },
   ];
-  sortState = { key: scored ? "wer" : "turnaround_median_s", dir: 1 };
+  if (scored) columns.splice(3, 0, { key: "sdi", label: "Sub / Del / Ins", sub: "word errors", cell: (p) => el("td", {}, `${p.substitutions} / ${p.deletions} / ${p.insertions}`) });
+
+  sortState = { key: "rank", dir: 1 };
+  const valueFor = (p, key) => (key === "rank" ? rankOf.get(p.provider) : key === "provider" ? nameOf(p.provider) : p[key]);
   const renderTable = () => {
     const { key, dir } = sortState;
     const rows = [...results.providers].sort((a, b) => {
       if (a.ran !== b.ran) return a.ran ? -1 : 1;
-      const va = key === "provider" ? nameOf(a.provider) : a[key];
-      const vb = key === "provider" ? nameOf(b.provider) : b[key];
+      const va = valueFor(a, key), vb = valueFor(b, key);
       if (va == null) return 1;
       if (vb == null) return -1;
       return (va > vb ? 1 : va < vb ? -1 : 0) * dir;
     });
     $("#resultTable").replaceChildren(
-      el("thead", {}, el("tr", {}, columns.map(([k, label]) =>
-        el("th", { scope: "col", "aria-sort": k === key ? (dir > 0 ? "ascending" : "descending") : false,
-          onclick: () => { if (k === "sdi") return; sortState = { key: k, dir: sortState.key === k ? -sortState.dir : k === "words" ? -1 : 1 }; renderTable(); } }, label)))),
-      el("tbody", {}, rows.map((p) => el("tr", {}, p.ran
-        ? columns.map(([k, , fmt]) => el("td", { class: k === "provider" ? "provider-name" : bests[k] != null && p[k] === bests[k] ? "best" : "" }, fmt(p)))
-        : [el("td", { class: "provider-name" }, nameOf(p.provider)), el("td", { class: "notrun", colspan: columns.length - 1 }, `not run: ${p.reason ?? ""}`)]))));
+      el("thead", {}, el("tr", {}, columns.map((c) =>
+        el("th", {
+          scope: "col", "aria-sort": c.key === key ? (dir > 0 ? "ascending" : "descending") : false,
+          onclick: () => { if (c.key === "sdi") return; sortState = { key: c.key, dir: sortState.key === c.key ? -sortState.dir : c.key === "words" ? -1 : 1 }; renderTable(); },
+        }, c.label, c.sub ? el("small", {}, c.sub) : null)))),
+      el("tbody", {}, rows.map((p) => el("tr", { class: p.ran && rankOf.get(p.provider) === 1 ? "first" : "" }, p.ran
+        ? columns.map((c) => c.cell(p))
+        : [el("td", { class: "rank" }, "–"), el("td", { class: "provider-name" }, nameOf(p.provider)), el("td", { class: "notrun", colspan: columns.length - 2 }, `not run: ${p.reason ?? ""}`)]))));
   };
   renderTable();
 
   const costNote = ran.some((p) => p.cost_basis)
-    ? `Cost is transcription only, at each provider's published rate on ${results.prices_as_of}${results.billed_audio_seconds ? ` for ${(results.billed_audio_seconds / 60).toFixed(2)} min of billed audio` : ""}; MeetStream's bot fee is the same whichever provider you pick, so it's left out. `
-    : "Cost needs each provider's raw response; runs made before cost was added can get it with npm run fetch-raw. ";
-  $("#tableNotes").textContent = `${scored ? "WER counts only words inside the clip, so talk before or after it is ignored. " : ""}Turnaround is measured from the request to the first poll that saw the result (poll every ${data.poll_seconds ?? 5} s), through MeetStream. ${costNote}`;
+    ? `Cost is transcription only, at each provider's published rate on ${results.prices_as_of}; MeetStream's bot fee is the same whichever provider you pick, so it's left out. `
+    : "Cost needs each provider's raw response; older runs can get it with npm run fetch-raw. ";
+  $("#tableNotes").textContent = `${scored ? "WER counts only words inside the clip. " : ""}Turnaround runs from the request to the first poll that saw the result (every ${data.poll_seconds ?? 5} s), through MeetStream. ${costNote}`;
+
+  // Trade-offs: both axes lower-is-better, so lower-left wins.
+  const xCost = { label: "Cost per hour", get: (p) => p.cost_per_hour_usd, fmt: perHour, tick: (v) => `$${v.toFixed(2)}` };
+  const xTime = { label: "Turnaround", get: (p) => p.turnaround_median_s, fmt: secs, tick: (v) => `${+v.toFixed(1)}s` };
+  const yWer = { label: "WER", get: (p) => (p.wer == null ? null : p.wer * 100), fmt: (v) => `${v.toFixed(1)}%`, tick: (v) => `${+v.toFixed(1)}%` };
+  $("#charts").replaceChildren(...(scored
+    ? [tradeoff({ title: "Accuracy vs cost", sub: "WER against price per hour", rows: ran, x: xCost, y: yWer }),
+       tradeoff({ title: "Accuracy vs speed", sub: "WER against turnaround", rows: ran, x: xTime, y: yWer })]
+    : [tradeoff({ title: "Speed vs cost", sub: "Turnaround against price per hour", rows: ran, x: xCost, y: { ...xTime, fmt: secs, tick: (v) => `${+v.toFixed(0)}s` } })]));
 
   const noteItems = results.providers.flatMap((p) => [
     ...(p.notes ?? []).map((n) => `${nameOf(p.provider)}: ${n}`),
     ...(p.failed_rounds ?? []).map((f) => `${nameOf(p.provider)}: round ${f.round} ${f.status}${f.error ? ` (${f.error})` : ""}`),
   ]);
-  $("#notes").replaceChildren(...(noteItems.length ? [el("div", { class: "callout" }, el("strong", {}, "Notes"), el("ul", {}, noteItems.map((n) => el("li", {}, n))))] : []));
+  $("#notes").replaceChildren(...(noteItems.length ? [el("div", { class: "callout" }, el("strong", {}, "Notes on this run"), el("ul", {}, noteItems.map((n) => el("li", {}, n))))] : []));
 
-  $("#details").replaceChildren(...ran.map((p) => el("details", { class: "provider-detail" },
-    el("summary", {}, nameOf(p.provider),
-      el("span", { class: "muted" }, scored ? `${p.errors.length} errors · ${pct(p.wer)}` : `${p.words} words`),
+  $("#details").replaceChildren(...rankOrder.map((p) => el("details", { class: "provider-detail" },
+    el("summary", {}, el("span", { class: "rank" }, String(rankOf.get(p.provider)).padStart(2, "0")), nameOf(p.provider),
+      el("span", { class: "muted" }, scored ? `${p.errors.length} word errors · ${pct(p.wer)}` : `${p.words} words`),
       p.cost_basis ? el("span", { class: "muted" }, `· ${p.cost_basis}`) : null),
     scored && p.errors.length
       ? el("div", { class: "errors" }, p.errors.slice(0, 80).map((e) => el("span", { class: `err ${e.op}`, title: e.op === "S" ? "substituted" : e.op === "D" ? "missed" : "inserted" },

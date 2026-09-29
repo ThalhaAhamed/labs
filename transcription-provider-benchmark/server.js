@@ -206,9 +206,14 @@ function watchLine(job, line) {
   if (/Recording saved ->/.test(line)) setState(job, { phase: "recorded" });
   if (/Bot is \w+, waiting for the recording/.test(line)) setState(job, { phase: "processing" });
   if (/Round \d+\/\d+: submitting/.test(line)) setState(job, { phase: "transcribing" });
-  if ((m = line.match(/^\s+(\w+)\s+(Success|Failed|not run)\b/))) {
-    setState(job, { providers: { ...(job.state.providers ?? {}), [m[1]]: m[2] } });
+  // "   deepgram     Success  7.02s" / "   sarvam       not run  HTTP 400: ..." / "   meetstream   reusing ..."
+  if ((m = line.match(/^\s+(\w+)\s+(Success|Failed|TimedOut|not run|reusing)\b\s*(?:([\d.]+)s)?\s*(.*)$/))) {
+    const status = m[2] === "reusing" ? "Reused" : m[2] === "not run" ? "NotRun" : m[2];
+    const seconds = m[3] ? parseFloat(m[3]) : null;
+    setState(job, { providers: { ...(job.state.providers ?? {}), [m[1]]: { status, seconds, detail: m[4]?.trim() || null } } });
   }
+  if ((m = line.match(/^\s+Providers\s+(.+)$/))) setState(job, { lanes: m[1].split(",").map((s) => s.trim()) });
+  if (/Round \d+\/\d+: submitting/.test(line) && !job.state.submittedAt) setState(job, { submittedAt: Date.now() });
   if ((m = line.match(/Results -> results[\\/]([0-9TZ-]+)[\\/]results\.md/))) setState(job, { runId: m[1] });
 }
 
