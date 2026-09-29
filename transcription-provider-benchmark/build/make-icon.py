@@ -1,12 +1,15 @@
-"""Draws the app icon: a ring around a microphone, with a waveform coming in
-from the left that turns into a check mark, and an arrow leaving the ring at
-the top right (audio in, scored, ranked). One flat colour, no gradient.
+"""Draws the app icon: a white mark on a rust-orange rounded tile, so it
+holds its own next to other filled app icons in the taskbar and dock.
+
+The mark is a ring around a microphone, with a waveform coming in from the
+left that turns into a check mark, and an arrow leaving the ring at the top
+right (audio in, scored, ranked). Sizes up to 48 px drop the ring (the tile
+does its job), the grille, stand and waveform, and enlarge the mic and
+check-arrow so they still read at 16 px.
 
 Writes build/icon.png (1024 px) plus icon.ico and icon.icns, and
-public/favicon.png for the page. Sizes up to 48 px use a bolder version
-without the grille, stand and waveform, so the icon still reads in the taskbar.
-
-The mark is drawn as one alpha mask (strokes add, cut-outs erase), then filled.
+public/favicon.png for the page. The mark is drawn as one alpha mask (strokes
+add, cut-outs erase), then laid over the tile.
 """
 import math
 from pathlib import Path
@@ -15,7 +18,8 @@ from PIL import Image, ImageDraw
 SIZE, SS = 1024, 4                      # draw at 4x, then downsample for smooth edges
 S = SIZE * SS
 C = S / 2
-COLOUR = (196, 82, 28)                  # rust orange
+TILE = (204, 86, 30)                    # rust orange
+MARK = (255, 255, 255)
 ON, OFF = 255, 0
 
 
@@ -51,16 +55,24 @@ def render(simple=False):
 
     # Ring, open at the top right where the arrow leaves it.
     R, RW = 410, 44 * k
-    d.arc([C - w(R), C - w(R), C + w(R), C + w(R)], start=-24, end=292, fill=ON, width=w(RW))
+    if not simple:
+        d.arc([C - w(R), C - w(R), C + w(R), C + w(R)], start=-24, end=292, fill=ON, width=w(RW))
 
     # Microphone: capsule, grille slots, cradle, stem and base.
-    mx, top, mw, mh = 512, 250, 150, 290
+    mx, top, mw, mh = (512, 250, 150, 290) if not simple else (470, 110, 230, 390)
     d.rounded_rectangle([*p(mx - mw / 2, top), *p(mx + mw / 2, top + mh)], radius=w(mw / 2), fill=ON)
     if not simple:
         for gy in (top + 70, top + 112, top + 154):
             d.rounded_rectangle([*p(mx - mw / 2 + 30, gy), *p(mx + mw / 2 - 30, gy + 16)], radius=w(8), fill=OFF)
     # Cradle: a U with straight arms either side of the capsule, on a stand.
-    if not simple:
+    # (Small sizes: a bolder cradle and a short stem, no base.)
+    if simple:
+        cw, cy, cs = 175, top + mh - 95, 46
+        d.arc([*p(mx - cw, cy - cw), *p(mx + cw, cy + cw)], start=0, end=180, fill=ON, width=w(cs))
+        line([(mx - cw + cs / 2, top + 170), (mx - cw + cs / 2, cy)], cs)
+        line([(mx + cw - cs / 2, top + 170), (mx + cw - cs / 2, cy)], cs)
+        line([(mx, cy + cw), (mx, cy + cw + 55)], cs)
+    else:
         cw, cy, cs = 135, top + mh - 60, 34
         d.arc([*p(mx - cw, cy - cw), *p(mx + cw, cy + cw)], start=0, end=180, fill=ON, width=w(cs))
         line([(mx - cw + cs / 2, top + 150), (mx - cw + cs / 2, cy)], cs)
@@ -69,7 +81,8 @@ def render(simple=False):
         line([(mx - 85, 805), (mx + 85, 805)], cs)
 
     # The check and arrow sit in front of the mic, with a clear gap around them.
-    check = [(318, 560), (455, 700), (740, 372)]
+    # (Small sizes: the check sits below the capsule so the mic stays whole.)
+    check = [(318, 560), (455, 700), (740, 372)] if not simple else [(285, 640), (420, 770), (740, 440)]
     stroke = 58 * k
     line(check, stroke + 36, fill=OFF)
     ax, ay = check[-1]
@@ -97,15 +110,33 @@ def render(simple=False):
             pts.append((x, y0 - amp * math.sin(2 * math.pi * 2 * t)))
         curve(pts, 28)
 
-    img = Image.new("RGBA", (S, S), COLOUR + (0,))
-    img.putalpha(mask)
+    return mask
+
+
+def compose(simple=False):
+    """The mark in white on the tile, cropped to its own bounds and filling 72%
+    of the tile (74% for the simple one)."""
+    mark = render(simple)
+    mark = mark.crop(mark.getbbox())
+    inset = w(40)                                        # tile margin, like other app icons
+    side = S - 2 * inset
+    fit = side * (0.74 if simple else 0.72)
+    scale = fit / max(mark.size)
+    mark = mark.resize((round(mark.width * scale), round(mark.height * scale)), Image.LANCZOS)
+
+    tile = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(tile).rounded_rectangle([inset, inset, S - inset, S - inset], radius=round(side * 0.22), fill=ON)
+    img = Image.new("RGBA", (S, S), TILE + (0,))
+    img.putalpha(tile)
+    white = Image.new("RGBA", mark.size, MARK + (255,))
+    img.paste(white, ((S - mark.width) // 2, (S - mark.height) // 2), mark)
     return img.resize((SIZE, SIZE), Image.LANCZOS)
 
 
 here = Path(__file__).parent
 out = here / "icon.png"
-big = render()
-small = render(simple=True)
+big = compose()
+small = compose(simple=True)
 big.save(out)
 ico = [small.resize((s, s), Image.LANCZOS) for s in (16, 24, 32, 48)] + [big.resize((s, s), Image.LANCZOS) for s in (64, 128, 256)]
 ico[-1].save(here / "icon.ico", sizes=[im.size for im in ico], append_images=ico[:-1])
