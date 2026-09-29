@@ -22,8 +22,10 @@ const secs = (x) => (x == null ? "–" : `${x.toFixed(1)}s`);
 
 function score(runDir) {
   const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
-  const reference = normalize(fs.readFileSync(path.join(runDir, run.reference.file), "utf8"));
-  fs.writeFileSync(path.join(runDir, "reference.normalized.txt"), reference + "\n");
+  // Without a reference (a recorder-only run of unscripted talk) there is no
+  // accuracy to score; the table then reports turnaround and word counts.
+  const reference = run.reference ? normalize(fs.readFileSync(path.join(runDir, run.reference.file), "utf8")) : null;
+  if (reference) fs.writeFileSync(path.join(runDir, "reference.normalized.txt"), reference + "\n");
   const clipSeconds = run.recording?.clip?.seconds ?? null;
 
   // Attempts that were replaced (resubmitted or re-run with --append) are not
@@ -52,6 +54,10 @@ function score(runDir) {
       fs.writeFileSync(path.join(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
       // Score only what falls inside the clip; talk before or after it in
       // the room is not the provider's error. The untrimmed figure is kept.
+      if (!reference) {
+        scored.push({ job, words: hypothesis ? hypothesis.split(" ").length : 0 });
+        continue;
+      }
       const window = clipWindow(reference, hypothesis);
       scored.push({ job, window, full: wer(reference, hypothesis), result: wer(reference, window.hypothesis) });
     }
@@ -62,10 +68,29 @@ function score(runDir) {
       continue;
     }
 
+    const turnarounds = scored.map((s) => s.job.turnaround_s).filter((x) => typeof x === "number");
+    if (!reference) {
+      rows.push({
+        provider,
+        ran: true,
+        rounds: jobs.length,
+        succeeded: scored.length,
+        failed_rounds: failures.map((j) => ({ round: j.round, status: j.status, error: j.error ?? null })),
+        notes: [...(replaced.get(provider) ?? []), ...jobs.filter((j) => j.note).map((j) => j.note)],
+        wer: null,
+        words: scored[0].words,
+        turnaround_median_s: median(turnarounds),
+        turnaround_min_s: turnarounds.length ? Math.min(...turnarounds) : null,
+        turnaround_max_s: turnarounds.length ? Math.max(...turnarounds) : null,
+        errors: [],
+        config: run.providers[provider],
+      });
+      continue;
+    }
+
     // Pool the edits across rounds: total errors over total reference words.
     const sum = (k) => scored.reduce((n, s) => n + s.result[k], 0);
     const refWords = sum("referenceWords");
-    const turnarounds = scored.map((s) => s.job.turnaround_s).filter((x) => typeof x === "number");
     const first = scored[0].result;
     rows.push({
       provider,
@@ -96,12 +121,13 @@ function score(runDir) {
     });
   }
 
-  rows.sort((a, b) => (a.ran === b.ran ? (a.wer ?? 0) - (b.wer ?? 0) : a.ran ? -1 : 1));
+  const rank = (r) => (reference ? r.wer ?? 0 : r.turnaround_median_s ?? Infinity);
+  rows.sort((a, b) => (a.ran === b.ran ? rank(a) - rank(b) : a.ran ? -1 : 1));
 
   const results = {
     run_id: run.run_id,
     bot_id: run.bot.id,
-    reference_words: reference.split(" ").length,
+    reference_words: reference ? reference.split(" ").length : null,
     clip_seconds: clipSeconds,
     poll_seconds: run.environment.poll_seconds,
     normalizer: NORMALIZER,
@@ -117,11 +143,27 @@ function score(runDir) {
 function renderMarkdown(run, results) {
   const L = [];
   L.push(`# Transcription provider benchmark: ${run.run_id}`, "");
-  L.push(`- Recording: bot \`${run.bot.id}\`${run.recording ? ` on ${run.recording.meeting_platform}, clip \`${run.recording.clip.path.replace(/\\/g, "/")}\` (${run.recording.clip.seconds}s, sha256 \`${run.recording.clip.sha256.slice(0, 12)}…\`)` : ""}`);
-  L.push(`- Reference: ${results.reference_words} words after normalisation (sha256 \`${run.reference.sha256.slice(0, 12)}…\`)`);
+  const rec = run.recording;
+  const clip = rec?.clip
+    ? `, clip \`${rec.clip.path.replace(/\\/g, "/")}\` (${rec.clip.seconds}s, sha256 \`${rec.clip.sha256.slice(0, 12)}…\`)`
+    : rec ? ", live speech (recorder only, no clip)" : "";
+  L.push(`- Recording: bot \`${run.bot.id}\`${rec?.bot_name ? ` ("${rec.bot_name}")` : ""}${rec ? ` on ${rec.meeting_platform}` : ""}${clip}`);
+  L.push(run.reference
+    ? `- Reference: ${results.reference_words} words after normalisation (sha256 \`${run.reference.sha256.slice(0, 12)}…\`)`
+    : "- Reference: none, so accuracy is not scored; the table reports turnaround and how many words each provider transcribed");
   L.push(`- Rounds: ${run.rounds}, all providers submitted together each round; turnaround polled every ${results.poll_seconds}s`);
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");
 
+  if (!run.reference) {
+    L.push("| Provider | Words transcribed | Turnaround | Range |");
+    L.push("|---|---:|---:|---:|");
+    for (const r of results.providers) {
+      if (!r.ran) { L.push(`| ${r.provider} | not run | | |`); continue; }
+      const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
+      L.push(`| ${r.provider} | ${r.words} | ${secs(r.turnaround_median_s)} | ${range} |`);
+    }
+    L.push("", `Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing. Each provider's transcript is in \`transcripts/\`.`);
+  } else {
   L.push("| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (median) | Range | × real time |");
   L.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const r of results.providers) {
@@ -144,6 +186,8 @@ function renderMarkdown(run, results) {
   }
   L.push(`WER is pooled over all successful rounds. Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing.`);
 
+  }
+
   const notRun = results.providers.filter((r) => !r.ran || r.failed_rounds?.length);
   if (notRun.length) {
     L.push("", "## Not run or partly failed", "");
@@ -158,6 +202,8 @@ function renderMarkdown(run, results) {
     L.push("", "## Notes", "");
     for (const r of noted) for (const n of r.notes) L.push(`- **${r.provider}**: ${n}`);
   }
+
+  if (!run.reference) return L.join("\n") + "\n";
 
   L.push("", "## Errors by provider (first successful round)", "");
   L.push("`S ref→hyp` substitution, `D ref` deletion (missed word), `I hyp` insertion. Normalised text for each provider is in `transcripts/*.normalized.txt`.", "");

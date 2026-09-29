@@ -157,9 +157,8 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
   const recordingPath = path.join("recordings", `${botId}.json`);
   const recording = fs.existsSync(recordingPath) ? JSON.parse(fs.readFileSync(recordingPath, "utf8")) : null;
   referencePath = referencePath ?? recording?.reference?.path;
-  if (!referencePath || !fs.existsSync(referencePath)) {
-    throw new Error("No reference transcript. Pass --reference <file> (the words actually spoken in the recording).");
-  }
+  if (referencePath && !fs.existsSync(referencePath)) throw new Error(`Reference ${referencePath} not found.`);
+  if (!referencePath) console.log("  No reference transcript: reporting turnaround only (pass --reference to score accuracy).");
 
   // --append adds providers to an existing run of the same recording (e.g. to
   // re-run one that failed) instead of starting a new results folder.
@@ -170,10 +169,10 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
   const runId = existing?.run_id ?? new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "Z";
   const runDir = appendTo ?? path.join("results", runId);
   fs.mkdirSync(path.join(runDir, "transcripts"), { recursive: true });
-  if (!existing) fs.copyFileSync(referencePath, path.join(runDir, "reference.txt"));
+  if (!existing && referencePath) fs.copyFileSync(referencePath, path.join(runDir, "reference.txt"));
 
   console.log(`  Bot        ${botId}`);
-  console.log(`  Reference  ${referencePath}`);
+  console.log(`  Reference  ${referencePath ?? "none (turnaround only)"}`);
   console.log(`  Providers  ${providers.join(", ")}`);
   console.log(`  Rounds     ${rounds}   (poll every ${pollSeconds}s)\n`);
 
@@ -244,7 +243,7 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
     environment: { node: process.version, platform: `${os.platform()} ${os.release()}`, poll_seconds: pollSeconds },
     bot: { id: botId, status_when_benchmarked: botStatus },
     recording, // null when benchmarking a bot this harness did not record
-    reference: { file: "reference.txt", source: referencePath, sha256: sha256File(referencePath) },
+    reference: referencePath ? { file: "reference.txt", source: referencePath, sha256: sha256File(referencePath) } : null,
     providers: Object.fromEntries(providers.map((p) => [p, PROVIDERS[p]])),
     rounds,
     jobs: newJobs,

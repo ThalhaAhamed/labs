@@ -190,6 +190,75 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
 }
 
 /**
+ * Recorder-only mode (--no-speaker): one bot joins and records whatever the
+ * people in the call say or play, with no speaker bot. It stays until the
+ * meeting ends, someone removes it, or `maxMinutes` pass. A reference
+ * transcript is optional: without one the benchmark reports turnaround only.
+ */
+async function recordListenerOnly({ meetingLink, botName, referencePath, maxMinutes = 30 }) {
+  console.log(`  Meeting    ${meetingLink}`);
+  console.log(`  Bot name   ${botName}`);
+  console.log(`  Reference  ${referencePath ?? "none (turnaround only, no accuracy)"}\n`);
+
+  const bot = await api.createBot({
+    meeting_link: meetingLink,
+    bot_name: botName,
+    video_required: false,
+    recording_config: { transcript: { provider: { meeting_captions: {} } } },
+  });
+  const botId = bot.bot_id ?? bot.id;
+  console.log(`  Recorder bot ${botId}`);
+
+  let removed = false;
+  const remove = async (why) => {
+    if (removed) return;
+    removed = true;
+    console.log(`   ${why}; removing the bot`);
+    await api.removeBot(botId).catch((e) => console.warn(`   could not remove the bot: ${api.describeError(e)}`));
+  };
+  process.once("SIGINT", () => remove("Ctrl+C").then(() => process.exit(130)));
+
+  try {
+    await waitInCall(botId, "recorder");
+    const joinedAt = new Date().toISOString();
+    console.log(`\n  Recording. Speak or play audio in the call now; it ends when the meeting ends,`);
+    console.log(`  when you remove "${botName}", or after ${maxMinutes} minutes.\n`);
+
+    const deadline = Date.now() + maxMinutes * 60_000;
+    let status = "InMeeting";
+    while (IN_CALL.has(status) && Date.now() < deadline) {
+      await sleep(5000);
+      status = await api.getBotStatus(botId).catch(() => status);
+    }
+    if (IN_CALL.has(status)) await remove(`${maxMinutes} minutes reached`);
+    else console.log(`   recorder ${status}`);
+
+    const recording = {
+      bot_id: botId,
+      bot_name: botName,
+      speaker_bot_id: null,
+      meeting_platform: new URL(meetingLink).hostname,
+      joined_at: joinedAt,
+      left_at: new Date().toISOString(),
+      live_provider: "meeting_captions",
+      clip: null,
+      reference: referencePath
+        ? { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) }
+        : null,
+    };
+    fs.mkdirSync("recordings", { recursive: true });
+    const out = path.join("recordings", `${botId}.json`);
+    fs.writeFileSync(out, JSON.stringify(recording, null, 2) + "\n");
+    console.log(`\n  Recording saved -> ${out}`);
+    console.log(`  Next: npm run benchmark -- --bot-id ${botId}\n`);
+    return recording;
+  } catch (err) {
+    await remove("stopping on an error");
+    throw err;
+  }
+}
+
+/**
  * A live provider's job starts by itself once the bot leaves, so its
  * turnaround is timed from then: post-call media processing plus the
  * provider, not comparable with a re-transcribe request's turnaround, which
@@ -222,4 +291,4 @@ async function timeLiveTranscript(botId, provider, leftAt, pollMs = 5000, timeou
   return { provider, status: "TimedOut", left_call_at: new Date(leftAt).toISOString() };
 }
 
-module.exports = { record, startControlServer, play, timeLiveTranscript, SEND_RATE };
+module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, SEND_RATE };

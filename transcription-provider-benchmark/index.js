@@ -8,6 +8,8 @@ const USAGE = `
   npm run fetch-sample                     build sample/clip.wav + sample/reference.txt
   npm run record    [-- --audio F --reference F]
                                            two bots join MEETING_LINK; one plays the clip, one records it
+  npm run record    -- --listener-only [--bot-name N --reference F --max-minutes M]
+                                           one bot records whatever people say or play in the call
   npm run benchmark [-- --bot-id ID --reference F --providers a,b --rounds N --poll S]
                                            run that one recording through every provider, then score it
   npm run score     -- results/<run>       re-score a finished run offline (no API key needed)
@@ -30,6 +32,9 @@ async function main() {
       "bot-id": { type: "string" },
       append: { type: "string" },
       "live-provider": { type: "string" },
+      "listener-only": { type: "boolean", default: false },
+      "bot-name": { type: "string" },
+      "max-minutes": { type: "string", default: "30" },
       providers: { type: "string" },
       rounds: { type: "string", default: "1" },
       poll: { type: "string", default: "5" },
@@ -41,6 +46,16 @@ async function main() {
   switch (command) {
     case "record": {
       if (!process.env.MEETING_LINK) throw new Error("MEETING_LINK is not set in your .env file.");
+      if (values["listener-only"]) {
+        const { recordListenerOnly } = require("./src/recorder");
+        await recordListenerOnly({
+          meetingLink: process.env.MEETING_LINK,
+          botName: values["bot-name"] ?? "Benchmark Recorder",
+          referencePath: values.reference,
+          maxMinutes: parseFloat(values["max-minutes"]),
+        });
+        break;
+      }
       if (!fs.existsSync(values.audio)) throw new Error(`${values.audio} not found. Run \`npm run fetch-sample\` first.`);
       const { record } = require("./src/recorder");
       await record({
