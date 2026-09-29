@@ -6,18 +6,36 @@
  * Runs still go through `index.js`, started with Electron's bundled Node.
  *
  * Data (runs, recordings, the sample clip, uploads) lives in the app's user
- * data folder, since an installed app cannot write next to its own files:
+ * data folder by default, since an installed app cannot write next to its own
+ * files:
  *   Windows  %APPDATA%\Transcriber Benchmark
  *   macOS    ~/Library/Application Support/Transcriber Benchmark
  *   Linux    ~/.config/Transcriber Benchmark
  * API keys typed into the page are kept there too, encrypted with the OS key
  * store (Electron safeStorage), so they survive restarts.
+ *
+ * To keep all of it somewhere else (another drive, say), set the environment
+ * variable TRANSCRIBER_BENCHMARK_DATA to a folder. Everything the app writes
+ * goes there instead: runs and keys, and Chromium's own caches, logs and
+ * crash dumps. It is independent of where the app is installed, so it
+ * survives upgrades and reinstalls.
  */
 const { app, BrowserWindow, Menu, shell, safeStorage, dialog } = require("electron");
 const fs = require("fs");
 const path = require("path");
 
 const APP_ROOT = path.join(__dirname, "..");
+
+// Must run before anything touches userData (the single-instance lock does).
+const customData = process.env.TRANSCRIBER_BENCHMARK_DATA?.trim();
+if (customData) {
+  const dir = path.resolve(customData);
+  fs.mkdirSync(dir, { recursive: true });
+  app.setPath("userData", dir);
+  app.setPath("sessionData", dir);
+  app.setPath("logs", path.join(dir, "logs"));
+  app.setPath("crashDumps", path.join(dir, "crashes"));
+}
 
 // One window per machine: a second launch focuses the first.
 if (!app.requestSingleInstanceLock()) {
