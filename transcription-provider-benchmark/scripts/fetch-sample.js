@@ -24,7 +24,7 @@ const URL = `https://huggingface.co/datasets/${DATASET}/resolve/${REVISION}/${FI
 const SAMPLE_RATE = 16_000;
 const GAP_SECONDS = 0.75; // silence between utterances, so they don't run together in the call
 
-const OUT_DIR = path.join(__dirname, "..", "sample");
+const OUT_DIR = path.join(process.env.BENCH_DATA_DIR || path.join(__dirname, ".."), "sample");
 const CACHE = path.join(OUT_DIR, ".cache", "librispeech_asr_dummy.parquet");
 
 async function download() {

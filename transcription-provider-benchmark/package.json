@@ -2,7 +2,7 @@
   "name": "meetstream-transcription-provider-benchmark",
   "version": "1.0.0",
   "description": "Runs one meeting recording through every MeetStream transcription provider and tabulates word error rate and turnaround time.",
-  "main": "index.js",
+  "main": "desktop/main.js",
   "scripts": {
     "fetch-sample": "node scripts/fetch-sample.js",
     "record": "node index.js record",
@@ -10,7 +10,12 @@
     "score": "node index.js score",
     "fetch-raw": "node index.js fetch-raw",
     "ui": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "desktop": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
   "engines": {
     "node": ">=18"
@@ -34,5 +39,82 @@
     "ffmpeg-static": "^5.2.0",
     "hyparquet": "^1.17.0",
     "ws": "^8.18.0"
-  }
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "productName": "MeetStream Transcription Benchmark",
+  "author": {
+    "name": "MeetStream Labs",
+    "url": "https://meetstream.ai"
+  },
+  "homepage": "https://github.com/meetstream-ai/labs/tree/main/transcription-provider-benchmark",
+  "build": {
+    "appId": "ai.meetstream.transcription-benchmark",
+    "productName": "MeetStream Transcription Benchmark",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "package.json",
+      "index.js",
+      "server.js",
+      "src/**",
+      "scripts/fetch-sample.js",
+      "public/**",
+      "desktop/**",
+      "sample/reference.txt",
+      "sample/manifest.json",
+      "results/2026-09-28T18-08-58Z/**",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "MeetStream-Transcription-Benchmark-Setup-${version}.${ext}",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "shortcutName": "Transcription Benchmark"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "MeetStream-Transcription-Benchmark-${version}-${arch}.${ext}",
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "synopsis": "Compare transcription providers on the same audio",
+      "maintainer": "MeetStream Labs",
+      "artifactName": "MeetStream-Transcription-Benchmark-${version}-${arch}.${ext}",
+      "icon": "build/icon.png",
+      "syncDesktopName": true,
+      "executableName": "meetstream-transcription-benchmark"
+    }
+  },
+  "desktopName": "meetstream-transcription-benchmark.desktop"
 }

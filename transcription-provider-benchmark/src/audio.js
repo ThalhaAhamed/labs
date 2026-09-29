@@ -1,7 +1,8 @@
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
-const ffmpegPath = require("ffmpeg-static");
+// In the packaged desktop app the binary is unpacked next to app.asar.
+const ffmpegPath = require("ffmpeg-static").replace(/app\.asar([\\/])/, "app.asar.unpacked$1");
 
 /**
  * Decodes any audio ffmpeg understands (wav, flac, mp3, m4a, ...) to raw

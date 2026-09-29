@@ -11,10 +11,17 @@
  * It listens on 127.0.0.1 only: it holds your MeetStream key (from .env, or
  * typed into the page, kept in memory and never sent back to the browser) and
  * can send bots into your meetings, so it is not meant to be exposed.
+ *
+ * The desktop app (desktop/main.js) runs this same server inside Electron. It
+ * passes a writable data folder in BENCH_DATA_DIR (an installed app cannot
+ * write next to its own files) and a key store, so keys survive restarts.
  */
 const fs = require("fs");
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, ".env") });
+// Where runs, recordings, uploads, the sample clip and .env live. Defaults to
+// this folder, which is what `npm run ui` has always used.
+const DATA = process.env.BENCH_DATA_DIR || __dirname;
+require("dotenv").config({ path: path.join(DATA, ".env") });
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 const express = require("express");
@@ -23,12 +30,21 @@ const { RATES, PRICES_AS_OF } = require("./src/pricing");
 
 const PORT = parseInt(process.env.UI_PORT || "4173", 10);
 const ROOT = __dirname;
-const RESULTS = path.join(ROOT, "results");
-const UPLOADS = path.join(ROOT, "uploads");
-const SAMPLE_AUDIO = path.join(ROOT, "sample", "clip.wav");
-const SAMPLE_REFERENCE = path.join(ROOT, "sample", "reference.txt");
+const RESULTS = path.join(DATA, "results");
+const UPLOADS = path.join(DATA, "uploads");
+const SAMPLE_AUDIO = path.join(DATA, "sample", "clip.wav");
+const SAMPLE_REFERENCE = path.join(DATA, "sample", "reference.txt");
 
-// Keys typed into the page live here for this process only.
+// Under Electron, process.execPath is the app itself; ELECTRON_RUN_AS_NODE
+// makes it behave as plain Node for the CLI, so users need no Node install.
+const NODE_ENV = process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {};
+const runNode = (script, args, env = {}) =>
+  spawn(process.execPath, [script, ...args], { cwd: DATA, env: { ...process.env, ...NODE_ENV, BENCH_DATA_DIR: DATA, ...env } });
+
+// Keys come from .env, or are typed into the page. By default they live in
+// memory for this process only; the desktop app supplies a store that keeps
+// them (encrypted by the OS) between launches.
+let keyStore = null;
 const keys = {
   MEETSTREAM_API_KEY: process.env.MEETSTREAM_API_KEY || "",
   NGROK_AUTHTOKEN: process.env.NGROK_AUTHTOKEN || "",
@@ -58,6 +74,7 @@ app.post("/api/keys", (req, res) => {
   for (const name of ["MEETSTREAM_API_KEY", "NGROK_AUTHTOKEN"]) {
     if (typeof req.body?.[name] === "string" && req.body[name].trim()) keys[name] = req.body[name].trim();
   }
+  try { keyStore?.save({ ...keys }); } catch (err) { console.warn(`  could not save keys: ${err.message}`); }
   res.json({ hasKey: Boolean(keys.MEETSTREAM_API_KEY), hasNgrok: Boolean(keys.NGROK_AUTHTOKEN) });
 });
 
@@ -101,7 +118,7 @@ app.post("/api/sample", (_req, res) => {
   if (exists(SAMPLE_AUDIO) && exists(SAMPLE_REFERENCE)) return res.json({ ready: true });
   if (!sampleBuild) {
     sampleBuild = new Promise((resolve) => {
-      const child = spawn(process.execPath, [path.join(ROOT, "scripts", "fetch-sample.js")], { cwd: ROOT });
+      const child = runNode(path.join(ROOT, "scripts", "fetch-sample.js"), []);
       let out = "";
       child.stdout.on("data", (c) => (out += c));
       child.stderr.on("data", (c) => (out += c));
@@ -219,10 +236,7 @@ function watchLine(job, line) {
 
 function runStep(job, args, env) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [path.join(ROOT, "index.js"), ...args], {
-      cwd: ROOT,
-      env: { ...process.env, ...env, FORCE_COLOR: "0" },
-    });
+    const child = runNode(path.join(ROOT, "index.js"), args, { ...env, FORCE_COLOR: "0" });
     job.child = child;
     let buffer = "";
     const onData = (chunk) => {
@@ -286,7 +300,9 @@ app.post("/api/jobs", async (req, res) => {
   res.json({ id: job.id });
 
   const env = { MEETSTREAM_API_KEY: keys.MEETSTREAM_API_KEY, NGROK_AUTHTOKEN: keys.NGROK_AUTHTOKEN, MEETING_LINK: spec.meetingLink ?? "" };
-  const rel = (p) => path.relative(ROOT, p);
+  // Paths are handed to the CLI relative to its working folder (DATA); the
+  // sample reference may live in the app bundle instead, so fall back to absolute.
+  const rel = (p) => (p.startsWith(DATA) ? path.relative(DATA, p) : p);
   try {
     let botId = spec.botId;
     if (mode !== "existing") {
@@ -357,7 +373,26 @@ app.post("/api/jobs/:id/stop", async (req, res) => {
   res.json({ stopped: "run" });
 });
 
-app.listen(PORT, "127.0.0.1", () => {
-  console.log(`\n  Transcription benchmark UI → http://localhost:${PORT}\n`);
-  if (!keys.MEETSTREAM_API_KEY) console.log("  No MEETSTREAM_API_KEY in .env: you can paste it into the page.\n");
-});
+/**
+ * Starts the server on 127.0.0.1. Port 0 picks a free port (the desktop app
+ * does that, so it never collides with anything already running).
+ * @returns {Promise<{ server: import("http").Server, port: number }>}
+ */
+function start({ port = PORT, store = null } = {}) {
+  keyStore = store;
+  const saved = store?.load() ?? {};
+  for (const name of Object.keys(keys)) if (!keys[name] && saved[name]) keys[name] = saved[name];
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, "127.0.0.1", () => resolve({ server, port: server.address().port }));
+    server.on("error", reject);
+  });
+}
+
+module.exports = { start, DATA };
+
+if (require.main === module) {
+  start().then(({ port }) => {
+    console.log(`\n  Transcription benchmark UI → http://localhost:${port}\n`);
+    if (!keys.MEETSTREAM_API_KEY) console.log("  No MEETSTREAM_API_KEY in .env: you can paste it into the page.\n");
+  });
+}

@@ -55,6 +55,38 @@ This harness compares MeetStream's **post-call** providers: the ones you configu
 - A meeting link (Google Meet, Zoom or Teams) you can admit two bots into
 - For every provider except `meetstream`: that provider's key configured in the MeetStream dashboard under **Integrations → Transcription**. Providers you haven't configured are listed as "not run", with the API's reason.
 
+## Desktop app (Windows, macOS, Linux)
+
+The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Install it and open **Transcription Benchmark**.
+
+| OS | Installer |
+|---|---|
+| Windows 10/11 (x64) | `MeetStream-Transcription-Benchmark-Setup-<version>.exe` |
+| macOS (Apple silicon or Intel) | `MeetStream-Transcription-Benchmark-<version>-<arch>.dmg` |
+| Linux (x64) | `.AppImage` (make it executable and run it), or `.deb` (`sudo apt install ./<file>.deb`) |
+
+The installers aren't code-signed yet, so the first launch asks you to confirm:
+- **Windows:** SmartScreen shows "More info → Run anyway".
+- **macOS:** right-click the app and choose Open.
+
+Inside the app:
+- **Everything the browser version does,** with Node bundled (the app runs the same `index.js` through Electron).
+- **Data lives in your user folder,** not next to the app: `%APPDATA%\MeetStream Transcription Benchmark` on Windows, `~/Library/Application Support/MeetStream Transcription Benchmark` on macOS, and `~/.config/MeetStream Transcription Benchmark` on Linux. Help → Open data folder takes you there. The published example run is copied in on first launch.
+- **Keys typed into the app are remembered,** encrypted by the operating system's key store (DPAPI, Keychain or libsecret). If no key store is available, they're kept in memory only.
+
+**Building the installers.** Each installer has to be built on its own OS, because ffmpeg and ngrok ship a native binary for the machine that runs `npm ci`.
+
+```bash
+npm run desktop        # run the desktop app from source
+npm run dist:win       # on Windows → dist/*.exe
+npm run dist:mac       # on a Mac   → dist/*.dmg (for that Mac's chip)
+npm run dist:linux     # on Linux   → dist/*.AppImage and *.deb
+```
+
+- **Linux from Windows or macOS:** `build/linux-in-docker.sh` builds and smoke-tests the Linux installers inside a Docker container (instructions at the top of the file).
+- **All of them at once:** the GitHub Actions workflow `.github/workflows/transcription-benchmark-desktop.yml` builds Windows, macOS on both chips, and Linux on their own runners. Run it from the Actions tab, or push a `transcription-benchmark-v*` tag. The Linux job also smoke-tests the packaged app.
+- **The icon** is drawn from the MeetStream mark by `build/make-icon.py` (PNG, ICO and ICNS).
+
 ## Run it in your browser
 
 ```bash

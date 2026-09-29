@@ -12,3 +12,6 @@ results/
 
 # Files uploaded through the UI
 uploads/
+
+# Desktop builds (npm run dist)
+dist/
