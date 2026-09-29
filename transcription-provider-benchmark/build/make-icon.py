@@ -1,10 +1,12 @@
-"""Draws the app icon: an orange ring around a microphone, a waveform that
-turns into a check mark, and an arrow rising over leaderboard bars (audio in,
-scored, ranked). Writes build/icon.png (1024 px) plus icon.ico and icon.icns,
-and public/favicon.png for the page.
+"""Draws the app icon: a ring around a microphone, with a waveform coming in
+from the left that turns into a check mark, and an arrow leaving the ring at
+the top right (audio in, scored, ranked). One flat colour, no gradient.
 
-The mark is drawn as one alpha mask (strokes add, cut-outs erase), then filled
-with a top-to-bottom orange gradient.
+Writes build/icon.png (1024 px) plus icon.ico and icon.icns, and
+public/favicon.png for the page. Sizes up to 48 px use a bolder version
+without the grille, stand and waveform, so the icon still reads in the taskbar.
+
+The mark is drawn as one alpha mask (strokes add, cut-outs erase), then filled.
 """
 import math
 from pathlib import Path
@@ -13,6 +15,8 @@ from PIL import Image, ImageDraw
 SIZE, SS = 1024, 4                      # draw at 4x, then downsample for smooth edges
 S = SIZE * SS
 C = S / 2
+COLOUR = (196, 82, 28)                  # rust orange
+ON, OFF = 255, 0
 
 
 def p(x, y):
@@ -24,80 +28,77 @@ def w(v):
     return round(v * SS)
 
 
-ON, OFF = 255, 0
-
-
 def render(simple=False):
-    """The full mark, or (simple) a bolder one without the mic and waveform for 16-64 px."""
     mask = Image.new("L", (S, S), 0)
     d = ImageDraw.Draw(mask)
+    k = 1.45 if simple else 1.0          # stroke weight
 
     def line(points, width, fill=ON):
         pts = [p(*q) for q in points]
         d.line(pts, fill=fill, width=w(width), joint="curve")
         r = w(width) / 2
-        for x, y in (pts[0], pts[-1]):     # round caps
+        for x, y in (pts[0], pts[-1]):   # round caps
             d.ellipse([x - r, y - r, x + r, y + r], fill=fill)
 
-    # Outer ring, open at the top right where the arrow leaves it.
-    R, RW = 440, (58 if not simple else 84)
-    box = [C - w(R), C - w(R), C + w(R), C + w(R)]
-    d.arc(box, start=-12, end=286, fill=ON, width=w(RW))
-    # Inner ring along the left, behind the waveform.
+    def curve(points, width):
+        """A smooth stroke along a dense path: stamp round dots, no joints."""
+        r = w(width) / 2
+        for a, b in zip(points, points[1:]):
+            n = max(1, int(math.dist(a, b) / 2))
+            for i in range(n + 1):
+                x, y = p(a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n)
+                d.ellipse([x - r, y - r, x + r, y + r], fill=ON)
+
+    # Ring, open at the top right where the arrow leaves it.
+    R, RW = 410, 44 * k
+    d.arc([C - w(R), C - w(R), C + w(R), C + w(R)], start=-24, end=292, fill=ON, width=w(RW))
+
+    # Microphone: capsule, grille slots, cradle, stem and base.
+    mx, top, mw, mh = 512, 250, 150, 290
+    d.rounded_rectangle([*p(mx - mw / 2, top), *p(mx + mw / 2, top + mh)], radius=w(mw / 2), fill=ON)
     if not simple:
-        R2, RW2 = 360, 26
-        box2 = [C - w(R2), C - w(R2), C + w(R2), C + w(R2)]
-        d.arc(box2, start=105, end=235, fill=ON, width=w(RW2))
-
-    # Leaderboard bars, rising left to right, clipped to the inside of the ring.
-    bars = Image.new("L", (S, S), 0)
-    bd = ImageDraw.Draw(bars)
-    for x0, top in (((575, 640), (675, 540), (775, 440)) if not simple else ((560, 650), (690, 500))):
-        bd.rounded_rectangle([*p(x0, top), *p(x0 + (72 if not simple else 96), 1000)], radius=w(10), fill=ON)
-    inner = R - RW / 2 - 24
-    inside = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(inside).ellipse([C - w(inner), C - w(inner), C + w(inner), C + w(inner)], fill=ON)
-    bars = Image.composite(bars, Image.new("L", (S, S), 0), inside)
-    mask.paste(ON, (0, 0), bars)
-
-    # Microphone: capsule with grille slots, a cradle and a stem.
-    mx, mtop, mw, mh = 450, 210, 124, 250
+        for gy in (top + 70, top + 112, top + 154):
+            d.rounded_rectangle([*p(mx - mw / 2 + 30, gy), *p(mx + mw / 2 - 30, gy + 16)], radius=w(8), fill=OFF)
+    # Cradle: a U with straight arms either side of the capsule, on a stand.
     if not simple:
-        d.rounded_rectangle([*p(mx - mw / 2, mtop), *p(mx + mw / 2, mtop + mh)], radius=w(mw / 2), fill=ON)
-        for gy in (mtop + 70, mtop + 108, mtop + 146):
-            d.rounded_rectangle([*p(mx - mw / 2 + 26, gy), *p(mx + mw / 2 - 26, gy + 14)], radius=w(7), fill=OFF)
-        d.arc([*p(mx - 100, mtop + 90), *p(mx + 100, mtop + mh + 60)], start=10, end=170, fill=ON, width=w(26))
-        line([(mx, mtop + mh + 58), (mx, mtop + mh + 100)], 26)
+        cw, cy, cs = 135, top + mh - 60, 34
+        d.arc([*p(mx - cw, cy - cw), *p(mx + cw, cy + cw)], start=0, end=180, fill=ON, width=w(cs))
+        line([(mx - cw + cs / 2, top + 150), (mx - cw + cs / 2, cy)], cs)
+        line([(mx + cw - cs / 2, top + 150), (mx + cw - cs / 2, cy)], cs)
+        line([(mx, cy + cw), (mx, 800)], cs)
+        line([(mx - 85, 805), (mx + 85, 805)], cs)
 
-    # Gap around the check so it reads as its own stroke over the bars and mic.
-    check = [(365, 600), (500, 735), (800, 355)] if not simple else [(300, 520), (470, 690), (790, 300)]
-    line(check, 120 if not simple else 150, fill=OFF)
-
-    # Waveform from the left edge of the ring into the check mark.
-    if not simple:
-        wave = [(152, 560), (215, 560), (245, 520), (275, 620), (305, 430), (340, 690), (372, 505), (400, 600)]
-        line(wave, 30)
-
-    # Check mark rising into an arrow; the head follows the last stroke's direction.
-    stroke = 64 if not simple else 96
-    line(check, stroke)
+    # The check and arrow sit in front of the mic, with a clear gap around them.
+    check = [(318, 560), (455, 700), (740, 372)]
+    stroke = 58 * k
+    line(check, stroke + 36, fill=OFF)
     ax, ay = check[-1]
     ang = math.atan2(ay - check[1][1], ax - check[1][0])
-    head, side = (135, 78) if not simple else (170, 100)
-    tip = (ax + head * math.cos(ang), ay + head * math.sin(ang))
-    left = (ax + side * math.cos(ang + math.pi / 2), ay + side * math.sin(ang + math.pi / 2))
-    right = (ax + side * math.cos(ang - math.pi / 2), ay + side * math.sin(ang - math.pi / 2))
-    d.polygon([p(*tip), p(*left), p(*right)], fill=ON)
+    head, side = 150, 88 + 12 * (k - 1)
 
-    # Fill: warm orange at the top to a deeper orange at the bottom.
-    grad = Image.new("RGBA", (1, S))
-    top, bottom = (250, 146, 48), (226, 86, 18)
-    for y in range(S):
-        t = y / (S - 1)
-        grad.putpixel((0, y), tuple(round(top[i] + (bottom[i] - top[i]) * t) for i in range(3)) + (255,))
-    grad = grad.resize((S, S))
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    img.paste(grad, (0, 0), mask)
+    def arrowhead(grow=0):
+        tip = (ax + (head + grow) * math.cos(ang), ay + (head + grow) * math.sin(ang))
+        left = (ax + (side + grow) * math.cos(ang + math.pi / 2), ay + (side + grow) * math.sin(ang + math.pi / 2))
+        right = (ax + (side + grow) * math.cos(ang - math.pi / 2), ay + (side + grow) * math.sin(ang - math.pi / 2))
+        return [p(*tip), p(*left), p(*right)]
+
+    d.polygon(arrowhead(20), fill=OFF)
+    line(check, stroke)
+    d.polygon(arrowhead(), fill=ON)
+
+    # Waveform from the left of the ring into the start of the check.
+    if not simple:
+        x0, x1, y0 = 128, check[0][0], check[0][1]    # starts inside the ring stroke (PIL draws arcs inward)
+        pts = []
+        for i in range(161):
+            t = i / 160
+            x = x0 + (x1 - x0) * t
+            amp = 58 * math.sin(math.pi * t) ** 0.8               # swells, then settles into the check
+            pts.append((x, y0 - amp * math.sin(2 * math.pi * 2 * t)))
+        curve(pts, 28)
+
+    img = Image.new("RGBA", (S, S), COLOUR + (0,))
+    img.putalpha(mask)
     return img.resize((SIZE, SIZE), Image.LANCZOS)
 
 
@@ -106,7 +107,6 @@ out = here / "icon.png"
 big = render()
 small = render(simple=True)
 big.save(out)
-# Small sizes get the simple mark, so the icon still reads in the taskbar.
 ico = [small.resize((s, s), Image.LANCZOS) for s in (16, 24, 32, 48)] + [big.resize((s, s), Image.LANCZOS) for s in (64, 128, 256)]
 ico[-1].save(here / "icon.ico", sizes=[im.size for im in ico], append_images=ico[:-1])
 big.save(here / "icon.icns")
