@@ -12,10 +12,10 @@
     "ui": "node server.js",
     "test": "node --test",
     "desktop": "electron .",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "dist": "node build/dist.js",
+    "dist:win": "node build/dist.js --win",
+    "dist:mac": "node build/dist.js --mac",
+    "dist:linux": "node build/dist.js --linux"
   },
   "engines": {
     "node": ">=18"
