@@ -3,9 +3,9 @@ holds its own next to other filled app icons in the taskbar and dock.
 
 The mark is a ring around a microphone, with a waveform coming in from the
 left that turns into a check mark, and an arrow leaving the ring at the top
-right (audio in, scored, ranked). Sizes up to 48 px drop the ring (the tile
-does its job), the grille, stand and waveform, and enlarge the mic and
-check-arrow so they still read at 16 px.
+right (audio in, scored, ranked). Every size uses the same mark; sizes up to
+48 px get heavier strokes and no grille slots, so it still reads in the
+taskbar and the installer.
 
 Writes build/icon.png (1024 px) plus icon.ico and icon.icns, and
 public/favicon.png for the page. The mark is drawn as one alpha mask (strokes
@@ -32,10 +32,10 @@ def w(v):
     return round(v * SS)
 
 
-def render(simple=False):
+def render(small=False):
     mask = Image.new("L", (S, S), 0)
     d = ImageDraw.Draw(mask)
-    k = 1.45 if simple else 1.0          # stroke weight
+    k = 1.4 if small else 1.0            # stroke weight
 
     def line(points, width, fill=ON):
         pts = [p(*q) for q in points]
@@ -55,34 +55,23 @@ def render(simple=False):
 
     # Ring, open at the top right where the arrow leaves it.
     R, RW = 410, 54 * k
-    if not simple:
-        d.arc([C - w(R), C - w(R), C + w(R), C + w(R)], start=-24, end=292, fill=ON, width=w(RW))
+    d.arc([C - w(R), C - w(R), C + w(R), C + w(R)], start=-24, end=292, fill=ON, width=w(RW))
 
-    # Microphone: capsule, grille slots, cradle, stem and base.
-    mx, top, mw, mh = (512, 250, 150, 290) if not simple else (470, 110, 230, 390)
+    # Microphone: capsule, grille slots (large sizes only), cradle, stem and base.
+    mx, top, mw, mh = 512, 250, 150, 290
     d.rounded_rectangle([*p(mx - mw / 2, top), *p(mx + mw / 2, top + mh)], radius=w(mw / 2), fill=ON)
-    if not simple:
+    if not small:
         for gy in (top + 70, top + 112, top + 154):
             d.rounded_rectangle([*p(mx - mw / 2 + 30, gy), *p(mx + mw / 2 - 30, gy + 16)], radius=w(8), fill=OFF)
-    # Cradle: a U with straight arms either side of the capsule, on a stand.
-    # (Small sizes: a bolder cradle and a short stem, no base.)
-    if simple:
-        cw, cy, cs = 175, top + mh - 95, 46
-        d.arc([*p(mx - cw, cy - cw), *p(mx + cw, cy + cw)], start=0, end=180, fill=ON, width=w(cs))
-        line([(mx - cw + cs / 2, top + 170), (mx - cw + cs / 2, cy)], cs)
-        line([(mx + cw - cs / 2, top + 170), (mx + cw - cs / 2, cy)], cs)
-        line([(mx, cy + cw), (mx, cy + cw + 55)], cs)
-    else:
-        cw, cy, cs = 135, top + mh - 60, 34
-        d.arc([*p(mx - cw, cy - cw), *p(mx + cw, cy + cw)], start=0, end=180, fill=ON, width=w(cs))
-        line([(mx - cw + cs / 2, top + 150), (mx - cw + cs / 2, cy)], cs)
-        line([(mx + cw - cs / 2, top + 150), (mx + cw - cs / 2, cy)], cs)
-        line([(mx, cy + cw), (mx, 800)], cs)
-        line([(mx - 85, 805), (mx + 85, 805)], cs)
+    cw, cy, cs = 135, top + mh - 60, 34 * k
+    d.arc([*p(mx - cw, cy - cw), *p(mx + cw, cy + cw)], start=0, end=180, fill=ON, width=w(cs))
+    line([(mx - cw + cs / 2, top + 150), (mx - cw + cs / 2, cy)], cs)
+    line([(mx + cw - cs / 2, top + 150), (mx + cw - cs / 2, cy)], cs)
+    line([(mx, cy + cw), (mx, 800)], cs)
+    line([(mx - 85, 805), (mx + 85, 805)], cs)
 
     # The check and arrow sit in front of the mic, with a clear gap around them.
-    # (Small sizes: the check sits below the capsule so the mic stays whole.)
-    check = [(318, 560), (455, 700), (740, 372)] if not simple else [(285, 640), (420, 770), (740, 440)]
+    check = [(318, 560), (455, 700), (740, 372)]
     stroke = 58 * k
     line(check, stroke + 36, fill=OFF)
     ax, ay = check[-1]
@@ -100,28 +89,26 @@ def render(simple=False):
     d.polygon(arrowhead(), fill=ON)
 
     # Waveform from the left of the ring into the start of the check.
-    if not simple:
-        x0, x1, y0 = 128, check[0][0], check[0][1]    # starts inside the ring stroke (PIL draws arcs inward)
-        pts = []
-        for i in range(161):
-            t = i / 160
-            x = x0 + (x1 - x0) * t
-            amp = 58 * math.sin(math.pi * t) ** 0.8               # swells, then settles into the check
-            pts.append((x, y0 - amp * math.sin(2 * math.pi * 2 * t)))
-        curve(pts, 28)
+    x0, x1, y0 = 128, check[0][0], check[0][1]    # starts inside the ring stroke (PIL draws arcs inward)
+    pts = []
+    for i in range(161):
+        t = i / 160
+        x = x0 + (x1 - x0) * t
+        amp = 58 * math.sin(math.pi * t) ** 0.8               # swells, then settles into the check
+        pts.append((x, y0 - amp * math.sin(2 * math.pi * 2 * t)))
+    curve(pts, 28 * k)
 
     return mask
 
 
-def compose(simple=False):
+def compose(small=False):
     """The mark in white on the tile, cropped to its own bounds and filling 84%
-    of the tile (74% for the simple one)."""
-    mark = render(simple)
+    of the tile."""
+    mark = render(small)
     mark = mark.crop(mark.getbbox())
     inset = w(40)                                        # tile margin, like other app icons
     side = S - 2 * inset
-    fit = side * (0.74 if simple else 0.84)
-    scale = fit / max(mark.size)
+    scale = side * 0.84 / max(mark.size)
     mark = mark.resize((round(mark.width * scale), round(mark.height * scale)), Image.LANCZOS)
 
     tile = Image.new("L", (S, S), 0)
@@ -136,7 +123,7 @@ def compose(simple=False):
 here = Path(__file__).parent
 out = here / "icon.png"
 big = compose()
-small = compose(simple=True)
+small = compose(small=True)
 big.save(out)
 ico = [small.resize((s, s), Image.LANCZOS) for s in (16, 24, 32, 48)] + [big.resize((s, s), Image.LANCZOS) for s in (64, 128, 256)]
 ico[-1].save(here / "icon.ico", sizes=[im.size for im in ico], append_images=ico[:-1])
