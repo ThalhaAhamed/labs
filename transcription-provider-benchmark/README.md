@@ -53,11 +53,22 @@ This harness compares MeetStream's **post-call** providers: the ones you configu
 - A MeetStream API key from [app.meetstream.ai](https://app.meetstream.ai)
 - A free ngrok authtoken from [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken). The speaker bot connects back to this machine through it.
 - A meeting link (Google Meet, Zoom or Teams) you can admit two bots into
-- For every provider except `meetstream`: that provider's key configured in the MeetStream dashboard under **Integrations → Transcription**. Providers you haven't configured are listed as "not run", with the API's reason.
+- Each provider connected in your MeetStream account (see the next section)
+
+## Before your first run: connect the providers
+
+MeetStream runs every provider for you, so their keys go in your MeetStream account, not in this tool. Do this once:
+
+1. Open the [MeetStream dashboard](https://app.meetstream.ai).
+2. Go to **Integrations → Transcription**.
+3. Connect **Deepgram**, **AssemblyAI**, **Sarvam** and **JigsawStack**, each with your own key for that provider.
+4. **Mia Transcribe** (`meetstream`) is MeetStream's own engine and needs nothing.
+
+A provider you haven't connected still appears in the results, marked "not run" with the API's reason. To leave it out, untick it in the app or pass `--providers`. The app's New benchmark page shows these steps too.
 
 ## Desktop app (Windows, macOS, Linux)
 
-The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Install it and open **Transcriber Benchmark**.
+The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Install it, [connect the providers](#before-your-first-run-connect-the-providers) in MeetStream if you haven't yet, and open **Transcriber Benchmark**.
 
 | OS | Installer |
 |---|---|
@@ -94,7 +105,7 @@ npm install
 npm run ui
 ```
 
-Then open http://localhost:4173. The page walks through the same steps as the command line:
+Then open http://localhost:4173. After [connecting the providers](#before-your-first-run-connect-the-providers), the page walks through the same steps as the command line:
 
 1. **Pick where the audio comes from:** a bot's existing recording, a meeting where a bot plays a clip (the sample, text you type for it to say, or your own file), or a meeting where people just talk.
 2. **Say what was actually said:** the sample's transcript, your own transcript (pasted or loaded from a file), or none, which gives turnaround and cost only.
@@ -121,7 +132,7 @@ npm run record
 npm run benchmark
 ```
 
-After copying `.env.example`, fill in `MEETSTREAM_API_KEY`, `MEETING_LINK` and `NGROK_AUTHTOKEN`.
+Before this, [connect the providers](#before-your-first-run-connect-the-providers) in your MeetStream account. After copying `.env.example`, fill in `MEETSTREAM_API_KEY`, `MEETING_LINK` and `NGROK_AUTHTOKEN`.
 
 What each step does:
 

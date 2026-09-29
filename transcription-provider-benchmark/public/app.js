@@ -149,13 +149,21 @@ $("#refFile").addEventListener("change", async (e) => {
   if (file) $("#refText").value = await file.text();
 });
 
+// The setup card stays open until it's closed once, then stays closed.
+try {
+  if (localStorage.getItem("setupCardClosed") === "1") $("#setupCard").open = false;
+  $("#setupCard").addEventListener("toggle", (e) => {
+    try { localStorage.setItem("setupCardClosed", e.target.open ? "0" : "1"); } catch {}
+  });
+} catch {}
+
 async function loadProviders() {
   const { providers, pricesAsOf } = await api("/api/providers");
   $("#providerList").replaceChildren(...providers.map((p) =>
     el("label", { class: "provider" },
       el("input", { type: "checkbox", name: "provider", value: p.key, checked: true }),
       el("div", {}, el("strong", {}, nameOf(p.key)), el("span", {}, p.rate ?? "")))));
-  $("#pricesNote").textContent = `Prices as published on ${pricesAsOf}. Every provider except MeetStream needs its key added in the MeetStream dashboard under Integrations → Transcription.`;
+  $("#pricesNote").textContent = `Prices as published on ${pricesAsOf}. Every provider except Mia Transcribe needs its key connected in the MeetStream dashboard under Integrations → Transcription (see Setup above).`;
 }
 
 function readAsBase64(file) {

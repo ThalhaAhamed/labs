@@ -99,6 +99,12 @@ main { padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 48px) 64px; max-width: 1
 .card h3 { font-size: 1.125rem; font-weight: 600; letter-spacing: -.02em; display: grid; gap: .3rem; }
 .step { color: var(--brand); }
 .hint { color: var(--muted); font-size: .875rem; }
+.setup-card summary { cursor: pointer; list-style: none; position: relative; padding-right: 3.5rem; }
+.setup-card summary::-webkit-details-marker { display: none; }
+.setup-card summary h3::after { position: absolute; right: 0; top: 0; content: "Hide"; font: 500 .75rem var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.setup-card:not([open]) summary h3::after { content: "Show"; }
+.setup-steps { margin: 0; padding-left: 1.3rem; display: grid; gap: .4rem; font-size: .9375rem; }
+.setup-steps a { color: var(--brand); }
 .field { display: grid; gap: 6px; font-size: .875rem; font-weight: 500; border: 0; padding: 0; margin: 0; }
 .field legend { padding: 0; margin-bottom: 6px; }
 .inline { display: flex; align-items: center; gap: 8px; font-weight: 400; flex-wrap: wrap; }
