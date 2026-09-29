@@ -46,4 +46,15 @@ function selectProviders(names) {
   return wanted;
 }
 
-module.exports = { PROVIDERS, selectProviders };
+// What people read: the API's provider keys stay as they are in configs and
+// results.json; reports and the UI show these names.
+const DISPLAY_NAMES = {
+  meetstream: "Mia Transcribe",
+  deepgram: "Deepgram",
+  assemblyai: "AssemblyAI",
+  sarvam: "Sarvam",
+  jigsawstack: "JigsawStack",
+};
+const displayName = (key) => DISPLAY_NAMES[key] ?? key;
+
+module.exports = { PROVIDERS, selectProviders, DISPLAY_NAMES, displayName };

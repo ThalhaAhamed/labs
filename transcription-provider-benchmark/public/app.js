@@ -26,7 +26,7 @@ async function api(path, opts = {}) {
   return data;
 }
 
-const NAMES = { meetstream: "MeetStream", jigsawstack: "JigsawStack", assemblyai: "AssemblyAI", deepgram: "Deepgram", sarvam: "Sarvam" };
+const NAMES = { meetstream: "Mia Transcribe", jigsawstack: "JigsawStack", assemblyai: "AssemblyAI", deepgram: "Deepgram", sarvam: "Sarvam" };
 const nameOf = (k) => NAMES[k] ?? k;
 const pct = (x) => (x == null ? "–" : `${(x * 100).toFixed(1)}%`);
 const secs = (x) => (x == null ? "–" : `${x.toFixed(1)} s`);

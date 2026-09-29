@@ -50,7 +50,7 @@ test("without a reference transcript the run reports turnaround and word counts,
     const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
     assert.match(md, /Reference: none, so accuracy is not scored/);
     assert.match(md, /^\| Provider \| Words transcribed \| Turnaround \| Range \|/m);
-    assert.match(md, /^\| deepgram \| 5 \| /m);
+    assert.match(md, /^\| Deepgram \| 5 \| /m);
     assert.doesNotMatch(md, /Errors by provider/);
   } finally {
     process.chdir(cwd);

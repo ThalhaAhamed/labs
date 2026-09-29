@@ -6,7 +6,7 @@ This harness compares the post-call transcription providers MeetStream offers. M
 
 | Provider key | Engine and config sent | Needs dashboard setup |
 |---|---|---|
-| `meetstream` | MeetStream engine, `language: "auto"` | No |
+| `meetstream` (shown as **Mia Transcribe**) | MeetStream engine, `language: "auto"` | No |
 | `deepgram` | Deepgram `nova-3`, `language: "en"` | Deepgram key under Integrations |
 | `assemblyai` | AssemblyAI `universal-2`, `language_code: "en_us"` | AssemblyAI key under Integrations |
 | `sarvam` | Sarvam `saaras:v3`, `mode: "transcribe"`, `language_code: "en-IN"` | Sarvam key under Integrations |

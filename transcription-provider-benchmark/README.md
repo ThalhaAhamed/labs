@@ -6,11 +6,11 @@ Latest run, [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.
 
 | Provider | WER | Sub / Del / Ins | Turnaround | Cost | Per hour |
 |---|---:|---:|---:|---:|---:|
-| meetstream | 2.1% | 7 / 2 / 0 | 8.6 s | $0.0071 | $0.10 |
-| jigsawstack | 2.1% | 7 / 2 / 0 | 7.5 s | $0.0019 | ~$0.03* |
-| assemblyai | 2.9% | 9 / 2 / 1 | 14.3 s | $0.012 | $0.17 |
-| deepgram | 3.8% | 12 / 4 / 0 | 8.6 s | $0.018 | $0.26 |
-| sarvam | 5.0% | 16 / 5 / 0 | 20.1 s | $0.033 | $0.47 |
+| Mia Transcribe | 2.1% | 7 / 2 / 0 | 8.6 s | $0.0071 | $0.10 |
+| JigsawStack | 2.1% | 7 / 2 / 0 | 7.5 s | $0.0019 | ~$0.03* |
+| AssemblyAI | 2.9% | 9 / 2 / 1 | 14.3 s | $0.012 | $0.17 |
+| Deepgram | 3.8% | 12 / 4 / 0 | 8.6 s | $0.018 | $0.26 |
+| Sarvam | 5.0% | 16 / 5 / 0 | 20.1 s | $0.033 | $0.47 |
 
 Cost is transcription only, for the 4.29 min of billed audio, at each provider's published rate on 2026-09-28 (see [Cost](METHODOLOGY.md#cost)). \*JigsawStack bills by processing tokens, so its per-hour cost depends on the audio.
 

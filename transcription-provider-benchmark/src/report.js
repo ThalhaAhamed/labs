@@ -8,6 +8,7 @@ const path = require("path");
 const { normalize, wer, clipWindow } = require("./wer");
 const { transcriptText } = require("./transcript");
 const { PRICES_AS_OF, audioSeconds, costOf } = require("./pricing");
+const { displayName } = require("./providers");
 
 const NORMALIZER = "src/wer.js normalize() (see METHODOLOGY.md)";
 
@@ -179,9 +180,9 @@ function renderMarkdown(run, results) {
     L.push("| Provider | Words transcribed | Turnaround | Range | Cost | Per hour |");
     L.push("|---|---:|---:|---:|---:|---:|");
     for (const r of results.providers) {
-      if (!r.ran) { L.push(`| ${r.provider} | not run | | | | |`); continue; }
+      if (!r.ran) { L.push(`| ${displayName(r.provider)} | not run | | | | |`); continue; }
       const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
-      L.push(`| ${r.provider} | ${r.words} | ${secs(r.turnaround_median_s)} | ${range} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
+      L.push(`| ${displayName(r.provider)} | ${r.words} | ${secs(r.turnaround_median_s)} | ${range} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
     }
     L.push("", `Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing. Each provider's transcript is in \`transcripts/\`.`);
   } else {
@@ -189,7 +190,7 @@ function renderMarkdown(run, results) {
   L.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const r of results.providers) {
     if (!r.ran) {
-      L.push(`| ${r.provider} | not run | | | | | | | | | |`);
+      L.push(`| ${displayName(r.provider)} | not run | | | | | | | | | |`);
       continue;
     }
     const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
@@ -198,7 +199,7 @@ function renderMarkdown(run, results) {
       : secs(r.turnaround_median_s);
     const rtf = r.real_time_factor == null ? "–" : `${r.real_time_factor.toFixed(2)}×`;
     const outside = r.clip_found ? `${r.outside_clip_words} word${r.outside_clip_words === 1 ? "" : "s"} (untrimmed WER ${pct(r.wer_untrimmed)})` : "clip not found, nothing cut";
-    L.push(`| ${r.provider} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${outside} | ${turnaround} | ${range} | ${rtf} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
+    L.push(`| ${displayName(r.provider)} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${outside} | ${turnaround} | ${range} | ${rtf} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
   }
   L.push("");
   L.push("WER counts only words inside the clip: anything a provider transcribed before the clip started or after it ended (talk in the room while the bots joined) is cut first and shown under Outside clip. See METHODOLOGY.md for the rule.", "");
@@ -211,22 +212,22 @@ function renderMarkdown(run, results) {
 
   const priced = results.providers.filter((r) => r.ran && r.cost_basis);
   if (priced.length) {
-    L.push("", `**Cost** is transcription only, at each provider's published rate on ${results.prices_as_of}, for ${results.billed_audio_seconds != null ? `${(results.billed_audio_seconds / 60).toFixed(2)} min of billed audio` : "the billed audio (length unknown: no provider reported it)"}. MeetStream's bot fee applies whichever provider is used and is not included. Rates: ${priced.map((r) => `${r.provider} ${r.cost_basis}`).join("; ")}.`);
+    L.push("", `**Cost** is transcription only, at each provider's published rate on ${results.prices_as_of}, for ${results.billed_audio_seconds != null ? `${(results.billed_audio_seconds / 60).toFixed(2)} min of billed audio` : "the billed audio (length unknown: no provider reported it)"}. MeetStream's bot fee applies whichever provider is used and is not included. Rates: ${priced.map((r) => `${displayName(r.provider)} ${r.cost_basis}`).join("; ")}.`);
   }
 
   const notRun = results.providers.filter((r) => !r.ran || r.failed_rounds?.length);
   if (notRun.length) {
     L.push("", "## Not run or partly failed", "");
     for (const r of notRun) {
-      if (!r.ran) L.push(`- **${r.provider}**: ${r.reason}`);
-      else for (const f of r.failed_rounds) L.push(`- **${r.provider}** round ${f.round}: ${f.status}${f.error ? ` (${f.error})` : ""}`);
+      if (!r.ran) L.push(`- **${displayName(r.provider)}**: ${r.reason}`);
+      else for (const f of r.failed_rounds) L.push(`- **${displayName(r.provider)}** round ${f.round}: ${f.status}${f.error ? ` (${f.error})` : ""}`);
     }
   }
 
   const noted = results.providers.filter((r) => r.notes?.length);
   if (noted.length) {
     L.push("", "## Notes", "");
-    for (const r of noted) for (const n of r.notes) L.push(`- **${r.provider}**: ${n}`);
+    for (const r of noted) for (const n of r.notes) L.push(`- **${displayName(r.provider)}**: ${n}`);
   }
 
   if (!run.reference) return L.join("\n") + "\n";
@@ -237,7 +238,7 @@ function renderMarkdown(run, results) {
     const shown = r.errors.slice(0, 40).map((e) =>
       e.op === "S" ? `S ${e.ref}→${e.hyp}` : e.op === "D" ? `D ${e.ref}` : `I ${e.hyp}`
     );
-    L.push(`**${r.provider}** (${r.errors.length} errors)${shown.length ? ": " + shown.map((s) => `\`${s}\``).join(", ") : ""}${r.errors.length > 40 ? ", …" : ""}`, "");
+    L.push(`**${displayName(r.provider)}** (${r.errors.length} errors)${shown.length ? ": " + shown.map((s) => `\`${s}\``).join(", ") : ""}${r.errors.length > 40 ? ", …" : ""}`, "");
   }
   return L.join("\n") + "\n";
 }

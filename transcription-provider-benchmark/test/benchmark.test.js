@@ -95,8 +95,8 @@ test("benchmark submits every provider, times them, scores them and reports the 
     assert.deepEqual(results.providers.map((r) => r.provider).slice(0, 3), ["meetstream", "deepgram", "assemblyai"]);
 
     const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
-    assert.match(md, /\| meetstream \| 0\.0% \|/);
-    assert.match(md, /\| sarvam \| not run \|/);
+    assert.match(md, /\| Mia Transcribe \| 0\.0% \|/);
+    assert.match(md, /\| Sarvam \| not run \|/);
     assert.match(md, /`S the→an`/);
 
     // Everything needed to re-score offline is inside the run directory.
@@ -150,7 +150,7 @@ test("a bot that already spent its one meetstream run is scored from that run's 
     assert.equal(row.rounds, 1);
     assert.equal(row.turnaround_median_s, null);
     assert.match(row.notes[0], /already run on this bot.*turnaround not measured/);
-    assert.match(fs.readFileSync(path.join(runDir, "results.md"), "utf8"), /\| meetstream \| 0\.0% \|.*\| – \|/);
+    assert.match(fs.readFileSync(path.join(runDir, "results.md"), "utf8"), /\| Mia Transcribe \| 0\.0% \|.*\| – \|/);
   } finally {
     process.chdir(cwd);
     fs.rmSync(dir, { recursive: true, force: true });
@@ -195,7 +195,7 @@ test("a provider the transcribe endpoint refuses is scored from its live run, wi
     assert.equal(row.post_call_turnaround_s, 42.5);
     assert.match(row.notes[0], /transcribe endpoint refused it.*finished 42\.5s after the bots left/);
     const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
-    assert.match(md, /\| assemblyai \|.*\| 42\.5s after call † \|/);
+    assert.match(md, /\| AssemblyAI \|.*\| 42\.5s after call † \|/);
     assert.match(md, /^† Ran live on the recording bot/m);
   } finally {
     process.chdir(cwd);
