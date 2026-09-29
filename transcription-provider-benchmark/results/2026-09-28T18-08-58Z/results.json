@@ -2,6 +2,8 @@
   "run_id": "2026-09-28T18-08-58Z",
   "bot_id": "88ba4098-3ab4-4c0c-b56c-3e5416f0f782",
   "reference_words": 420,
+  "billed_audio_seconds": 257.1947,
+  "prices_as_of": "2026-09-28",
   "clip_seconds": 191.435,
   "poll_seconds": 5,
   "normalizer": "src/wer.js normalize() (see METHODOLOGY.md)",
@@ -81,7 +83,11 @@
           "language": "auto",
           "translate": false
         }
-      }
+      },
+      "cost_usd": 0.007144297222222222,
+      "cost_per_hour_usd": 0.1,
+      "cost_basis": "$0.10/hr (MeetStream transcription add-on)",
+      "cost_source": "https://www.meetstream.ai/pricing"
     },
     {
       "provider": "jigsawstack",
@@ -161,7 +167,11 @@
           "language": "en",
           "translate": false
         }
-      }
+      },
+      "cost_usd": 0.0019493099999999999,
+      "cost_per_hour_usd": 0.027284839073277948,
+      "cost_basis": "$0.99 per 1M tokens (from the response's own usage)",
+      "cost_source": "https://jigsawstack.com/pricing"
     },
     {
       "provider": "assemblyai",
@@ -255,7 +265,11 @@
           ],
           "language_code": "en_us"
         }
-      }
+      },
+      "cost_usd": 0.012145305277777777,
+      "cost_per_hour_usd": 0.16999999999999998,
+      "cost_basis": "$0.15/hr Universal-2 + $0.02/hr speaker labels",
+      "cost_source": "https://www.assemblyai.com/pricing"
     },
     {
       "provider": "deepgram",
@@ -367,7 +381,11 @@
           "model": "nova-3",
           "language": "en"
         }
-      }
+      },
+      "cost_usd": 0.018432286833333335,
+      "cost_per_hour_usd": 0.25800000000000006,
+      "cost_basis": "$0.0043/min (Nova-3 pre-recorded)",
+      "cost_source": "https://deepgram.com/pricing"
     },
     {
       "provider": "sarvam",
@@ -505,7 +523,11 @@
           "mode": "transcribe",
           "language_code": "en-IN"
         }
-      }
+      },
+      "cost_usd": 0.033433171277038265,
+      "cost_per_hour_usd": 0.4679700499168053,
+      "cost_basis": "₹45/hr batch with diarization, at ₹96.16/$",
+      "cost_source": "https://www.sarvam.ai/api-pricing"
     }
   ]
 }

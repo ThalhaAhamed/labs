@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Transcription Benchmark</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">◆</span>
+      <div>
+        <h1>Transcription Benchmark</h1>
+        <p class="sub">Same audio, every provider: accuracy, turnaround and cost side by side</p>
+      </div>
+    </div>
+    <button class="pill" id="keysButton" type="button">
+      <span class="dot" id="keyDot"></span><span id="keyLabel">Checking key…</span>
+    </button>
+  </header>
+
+  <div class="layout">
+    <nav class="side" aria-label="Runs">
+      <button class="primary wide" id="newRun" type="button">+ New run</button>
+      <h2 class="side-title">Past runs</h2>
+      <ul id="runList" class="run-list"><li class="muted">Loading…</li></ul>
+    </nav>
+
+    <main id="main">
+      <!-- New run -->
+      <section id="setupView" class="view">
+        <h2 class="view-title">New run</h2>
+
+        <div class="card" id="keysCard" hidden>
+          <h3>Keys</h3>
+          <p class="hint">Kept in this app's memory only and never shown again. You can also put them in <code>.env</code>.</p>
+          <label class="field">MeetStream API key
+            <input id="apiKey" type="password" autocomplete="off" placeholder="ms_…">
+          </label>
+          <label class="field" id="ngrokField">ngrok authtoken <span class="muted">(only for the speaker bot)</span>
+            <input id="ngrokToken" type="password" autocomplete="off">
+          </label>
+          <button class="secondary" id="saveKeys" type="button">Save keys</button>
+        </div>
+
+        <div class="card">
+          <h3><span class="step">1</span> Where the audio comes from</h3>
+          <div class="choices" role="radiogroup" aria-label="Audio source">
+            <label class="choice"><input type="radio" name="mode" value="existing" checked>
+              <strong>A recording that already exists</strong>
+              <span>Transcribe a bot's finished recording again with every provider.</span></label>
+            <label class="choice"><input type="radio" name="mode" value="two-bot">
+              <strong>Record a meeting: a bot plays a clip</strong>
+              <span>One bot plays the audio into the call, another records it. Best for accuracy.</span></label>
+            <label class="choice"><input type="radio" name="mode" value="recorder">
+              <strong>Record a meeting: people talk</strong>
+              <span>One bot records whatever is said until you stop it.</span></label>
+          </div>
+
+          <div class="mode-fields" data-mode="existing">
+            <label class="field">Bot ID
+              <div class="row">
+                <input id="botId" placeholder="e.g. 88ba4098-3ab4-4c0c-b56c-3e5416f0f782" spellcheck="false">
+                <button class="secondary" id="loadBots" type="button">Recent bots</button>
+              </div>
+            </label>
+            <select id="botPicker" hidden aria-label="Recent bots"></select>
+            <p class="hint">A provider that has already transcribed this bot can't run on it again. The run then scores that earlier transcript, without a turnaround time.</p>
+          </div>
+
+          <div class="mode-fields" data-mode="two-bot" hidden>
+            <label class="field">Meeting link
+              <input class="meetingLink" placeholder="https://meet.google.com/abc-defg-hij">
+            </label>
+            <fieldset class="field">
+              <legend>Audio to play</legend>
+              <label class="inline"><input type="radio" name="audio" value="sample" checked> Sample clip (3 min of LibriSpeech, exact transcript)</label>
+              <label class="inline"><input type="radio" name="audio" value="upload"> My own audio file
+                <input id="audioFile" type="file" accept="audio/*,video/*"></label>
+            </fieldset>
+            <p class="hint">Admit both bots when they reach the lobby, and keep everyone muted while the clip plays.</p>
+          </div>
+
+          <div class="mode-fields" data-mode="recorder" hidden>
+            <label class="field">Meeting link
+              <input class="meetingLink" placeholder="https://meet.google.com/abc-defg-hij">
+            </label>
+            <div class="row">
+              <label class="field grow">Bot name
+                <input id="botName" value="Benchmark Recorder">
+              </label>
+              <label class="field">Stop after (minutes)
+                <input id="maxMinutes" type="number" min="1" max="240" value="30">
+              </label>
+            </div>
+            <p class="hint">Admit the bot, then talk. Press <em>Stop recording</em> when you're done (or end the meeting).</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="step">2</span> What was actually said</h3>
+          <p class="hint">Accuracy (WER) needs a word-for-word transcript. Without one you still get turnaround and cost.</p>
+          <div class="choices compact" role="radiogroup" aria-label="Reference transcript">
+            <label class="choice"><input type="radio" name="reference" value="sample">
+              <strong>The sample clip's transcript</strong><span id="sampleNote">Use when the sample clip was played.</span></label>
+            <label class="choice"><input type="radio" name="reference" value="text">
+              <strong>My own transcript</strong><span>Paste it or load a .txt file.</span></label>
+            <label class="choice"><input type="radio" name="reference" value="none" checked>
+              <strong>None</strong><span>Turnaround and cost only.</span></label>
+          </div>
+          <div id="referenceText" hidden>
+            <textarea id="refText" rows="6" placeholder="Paste exactly what was said…"></textarea>
+            <input id="refFile" type="file" accept=".txt,text/plain">
+          </div>
+          <div id="sampleBox" class="notice" hidden>
+            <span id="sampleStatus">The sample clip hasn't been built yet.</span>
+            <button class="secondary" id="buildSample" type="button">Get sample clip</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="step">3</span> Providers</h3>
+          <div id="providerList" class="providers"></div>
+          <p class="hint" id="pricesNote"></p>
+        </div>
+
+        <div class="actions">
+          <p class="error" id="setupError" role="alert"></p>
+          <button class="primary" id="runButton" type="button">Run benchmark</button>
+        </div>
+      </section>
+
+      <!-- Live run -->
+      <section id="liveView" class="view" hidden>
+        <h2 class="view-title">Running</h2>
+        <ol class="stepper" id="stepper"></ol>
+        <div class="card">
+          <div class="live-head">
+            <div id="botChips" class="chips"></div>
+            <div class="live-actions">
+              <button class="secondary" id="stopRecording" type="button" hidden>Stop recording</button>
+              <button class="ghost danger" id="cancelRun" type="button">Cancel run</button>
+            </div>
+          </div>
+          <p class="live-message" id="liveMessage"></p>
+          <div id="providerProgress" class="chips"></div>
+        </div>
+        <details class="card log" open>
+          <summary>Log</summary>
+          <pre id="log"></pre>
+        </details>
+      </section>
+
+      <!-- Results -->
+      <section id="resultView" class="view" hidden>
+        <div class="result-head">
+          <div>
+            <h2 class="view-title" id="resultTitle">Results</h2>
+            <p class="muted" id="resultMeta"></p>
+          </div>
+          <div class="downloads" id="downloads"></div>
+        </div>
+        <div class="summary" id="summaryCards"></div>
+        <div class="card table-card">
+          <table id="resultTable"></table>
+          <p class="hint" id="tableNotes"></p>
+        </div>
+        <div id="notes"></div>
+        <h3 class="section-title">Provider detail</h3>
+        <div id="details"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

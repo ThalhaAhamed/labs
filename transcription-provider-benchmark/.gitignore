@@ -9,3 +9,6 @@ sample/clip.wav
 # Per-run output. Commit a run's directory deliberately when publishing it.
 recordings/
 results/
+
+# Files uploaded through the UI
+uploads/

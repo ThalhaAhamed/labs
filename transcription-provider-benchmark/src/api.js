@@ -57,8 +57,10 @@ async function listTranscriptions(botId) {
 }
 
 /** GET /transcript/{id}/get_transcript. The formatted, speaker-labelled transcript. */
-async function getTranscript(transcriptId) {
-  const { data } = await client().get(`/transcript/${transcriptId}/get_transcript`);
+async function getTranscript(transcriptId, { raw = false } = {}) {
+  const { data } = await client().get(`/transcript/${transcriptId}/get_transcript`, {
+    params: raw ? { raw: "true" } : undefined,
+  });
   return data;
 }
 

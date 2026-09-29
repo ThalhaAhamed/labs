@@ -13,6 +13,8 @@ const USAGE = `
   npm run benchmark [-- --bot-id ID --reference F --providers a,b --rounds N --poll S]
                                            run that one recording through every provider, then score it
   npm run score     -- results/<run>       re-score a finished run offline (no API key needed)
+  npm run fetch-raw -- results/<run>       add providers' raw responses to an older run (for cost), then re-score
+  npm run ui                               the same tool in your browser
 `;
 
 function latestRecording() {
@@ -81,6 +83,26 @@ async function main() {
         timeoutMinutes: parseFloat(values.timeout),
         appendTo: values.append,
       });
+      break;
+    }
+    case "fetch-raw": {
+      if (!target) throw new Error("Usage: npm run fetch-raw -- results/<run>");
+      const api = require("./src/api");
+      const runPath = path.join(target, "run.json");
+      const run = JSON.parse(fs.readFileSync(runPath, "utf8"));
+      for (const job of run.jobs.filter((j) => j.status === "Success" && j.transcript_file && !j.raw_file)) {
+        try {
+          const raw = await api.getTranscript(job.transcript_id, { raw: true });
+          job.raw_file = job.transcript_file.replace(/\.json$/, ".raw.json");
+          fs.writeFileSync(path.join(target, job.raw_file), JSON.stringify(raw, null, 2));
+          console.log(`  ${job.provider.padEnd(12)} saved ${job.raw_file}`);
+        } catch (err) {
+          console.log(`  ${job.provider.padEnd(12)} ${api.describeError(err)}`);
+        }
+      }
+      fs.writeFileSync(runPath, JSON.stringify(run, null, 2) + "\n");
+      const { score } = require("./src/report");
+      console.log(score(target).markdown);
       break;
     }
     case "score": {

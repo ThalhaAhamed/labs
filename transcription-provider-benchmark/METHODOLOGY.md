@@ -97,6 +97,24 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 - **Fallback: live transcription.** If the re-transcribe endpoint refuses a provider that works at bot creation (this happened to AssemblyAI for part of 2026-09-28), `npm run record -- --live-provider <p>` runs it live on the recording bot. Its turnaround is then timed from the bots leaving the call, which includes MeetStream's post-call media processing, so the table marks it with † as not comparable.
 - "× real time" is the turnaround divided by the clip length. For example, 0.25× means a 3-minute clip took 45 s.
 
+## Cost
+
+Cost is **transcription only**, at each provider's published pay-as-you-go rate. The rates and their date are in [src/pricing.js](src/pricing.js), and each one is worked out from what the provider actually billed for, read from its own raw response (`transcripts/*.raw.json`):
+
+| Provider | Rate (2026-09-28) | Billed on |
+|---|---|---|
+| `meetstream` | $0.10/hr (MeetStream's transcription add-on) | audio length |
+| `deepgram` | $0.0043/min (Nova-3 pre-recorded) | audio length |
+| `assemblyai` | $0.15/hr for Universal-2, plus $0.02/hr for speaker labels, which are on by default | audio length |
+| `sarvam` | ₹45/hr for batch with diarization, which is on by default; ₹30/hr without | audio length, converted at ₹96.16 to the dollar |
+| `jigsawstack` | $0.99 per million tokens | its own token count (mostly processing time), so its per-hour cost varies with the audio |
+
+Details:
+- **Audio length** comes from Deepgram's `metadata.duration` or AssemblyAI's `audio_duration`. That's the whole recording, not just the clip.
+- **MeetStream's bot fee ($0.35/hr) is left out.** You pay it whichever provider transcribes.
+- **No markup on third-party providers.** They bill your own key directly.
+- **Minimums aren't modelled.** Some providers round up or have minimum charges, so an invoice for very short audio can be higher than the figure here.
+
 ## Limitations
 
 - **Not meeting speech.** The default clip is read English. Conversational speech, accents, crosstalk, jargon and code-switching all change WER and can change rankings. To measure those, use `--audio` and `--reference` with your own recording and a verbatim transcript.

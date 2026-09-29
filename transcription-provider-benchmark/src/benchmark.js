@@ -224,6 +224,17 @@ async function benchmark({ botId, referencePath, providers, rounds, pollSeconds,
       } catch (err) {
         job.status = "FetchFailed";
         job.error = api.describeError(err);
+        continue;
+      }
+      // The provider's own response: it carries what the provider bills on
+      // (audio duration, or JigsawStack's token usage), so cost is computed
+      // from the real call rather than estimated. Not fatal if unavailable.
+      try {
+        const raw = await api.getTranscript(job.transcript_id, { raw: true });
+        job.raw_file = job.transcript_file.replace(/\.json$/, ".raw.json");
+        fs.writeFileSync(path.join(runDir, job.raw_file), JSON.stringify(raw, null, 2));
+      } catch (err) {
+        job.raw_error = api.describeError(err);
       }
     }
     jobs.push(...batch);

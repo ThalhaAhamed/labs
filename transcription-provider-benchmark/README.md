@@ -4,13 +4,15 @@ This harness runs **one meeting recording through every transcription provider M
 
 Latest run, [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.md): Google Meet, the 191 s sample clip (420 reference words). One recording was sent to all five providers through the same re-transcribe request, and each was timed from its own request.
 
-| Provider | WER | Sub / Del / Ins | Turnaround | × real time |
-|---|---:|---:|---:|---:|
-| meetstream | 2.1% | 7 / 2 / 0 | 8.6 s | 0.05× |
-| jigsawstack | 2.1% | 7 / 2 / 0 | 7.5 s | 0.04× |
-| assemblyai | 2.9% | 9 / 2 / 1 | 14.3 s | 0.07× |
-| deepgram | 3.8% | 12 / 4 / 0 | 8.6 s | 0.04× |
-| sarvam | 5.0% | 16 / 5 / 0 | 20.1 s | 0.10× |
+| Provider | WER | Sub / Del / Ins | Turnaround | Cost | Per hour |
+|---|---:|---:|---:|---:|---:|
+| meetstream | 2.1% | 7 / 2 / 0 | 8.6 s | $0.0071 | $0.10 |
+| jigsawstack | 2.1% | 7 / 2 / 0 | 7.5 s | $0.0019 | ~$0.03* |
+| assemblyai | 2.9% | 9 / 2 / 1 | 14.3 s | $0.012 | $0.17 |
+| deepgram | 3.8% | 12 / 4 / 0 | 8.6 s | $0.018 | $0.26 |
+| sarvam | 5.0% | 16 / 5 / 0 | 20.1 s | $0.033 | $0.47 |
+
+Cost is transcription only, for the 4.29 min of billed audio, at each provider's published rate on 2026-09-28 (see [Cost](METHODOLOGY.md#cost)). \*JigsawStack bills by processing tokens, so its per-hour cost depends on the audio.
 
 How to read this:
 
@@ -53,7 +55,31 @@ This harness compares MeetStream's **post-call** providers: the ones you configu
 - A meeting link (Google Meet, Zoom or Teams) you can admit two bots into
 - For every provider except `meetstream`: that provider's key configured in the MeetStream dashboard under **Integrations → Transcription**. Providers you haven't configured are listed as "not run", with the API's reason.
 
-## Run it
+## Run it in your browser
+
+```bash
+npm install
+npm run ui
+```
+
+Then open http://localhost:4173. The page walks through the same steps as the command line:
+
+1. **Pick where the audio comes from:** a bot's existing recording, a meeting where a bot plays a clip (the sample, or your own file), or a meeting where people just talk.
+2. **Say what was actually said:** the sample's transcript, your own transcript (pasted or loaded from a file), or none, which gives turnaround and cost only.
+3. **Tick the providers,** then run.
+
+While the run goes, the page shows each step and the full log. When it finishes you get:
+- a table of accuracy, turnaround and cost, with the best value in each column highlighted;
+- every word each provider got wrong, and its full transcript;
+- every past run in the sidebar, with `results.md` and `results.json` to download.
+
+About the app itself:
+- **It uses the command-line tool underneath.** Each run starts `node index.js record` / `benchmark` in the background, so a result from the page is the same as one from the terminal and lands in the same `results/` folder.
+- **It stays on your machine.** It only listens on `127.0.0.1`, because it holds your MeetStream key and can send bots into your meetings.
+- **Keys:** it reads them from `.env`, or you can paste them into the page, where they're kept in memory only.
+- **The port** is set with `UI_PORT` (default 4173).
+
+## Run it from the command line
 
 ```bash
 npm install
@@ -84,6 +110,8 @@ npm run record -- --audio call.m4a --reference call.txt   # your own audio (any 
 npm run record -- --live-provider assemblyai  # fallback: transcribe live with a provider the re-transcribe endpoint refuses
 npm run benchmark -- --bot-id <id> --providers jigsawstack --append results/<run>   # re-run one provider into an existing run
 npm run score -- results/<run>                # re-score a finished run, no API key needed
+npm run fetch-raw -- results/<run>            # add providers' raw responses to an older run (needed for cost)
+npm run record -- --listener-only --bot-name "My Recorder"   # one bot records people talking; no speaker bot
 ```
 
 Your own audio is the better test for a buying decision: your accents, your jargon, your crosstalk. The reference must be a verbatim transcript of what was said, not a summary or a cleaned-up version.

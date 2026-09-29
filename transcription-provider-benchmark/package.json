@@ -8,17 +8,29 @@
     "record": "node index.js record",
     "benchmark": "node index.js benchmark",
     "score": "node index.js score",
+    "fetch-raw": "node index.js fetch-raw",
+    "ui": "node server.js",
     "test": "node --test"
   },
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["meetstream", "transcription", "benchmark", "wer", "deepgram", "assemblyai", "sarvam", "jigsawstack"],
+  "keywords": [
+    "meetstream",
+    "transcription",
+    "benchmark",
+    "wer",
+    "deepgram",
+    "assemblyai",
+    "sarvam",
+    "jigsawstack"
+  ],
   "license": "MIT",
   "dependencies": {
     "@ngrok/ngrok": "^1.7.0",
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
+    "express": "^4.22.3",
     "ffmpeg-static": "^5.2.0",
     "hyparquet": "^1.17.0",
     "ws": "^8.18.0"
