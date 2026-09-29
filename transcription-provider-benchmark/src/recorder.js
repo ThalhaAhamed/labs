@@ -100,7 +100,7 @@ async function play(ws, botId, pcm) {
   process.stdout.write(`\r   playing  done (${(pcm.length / 2 / SEND_RATE).toFixed(1)}s)          \n`);
 }
 
-async function record({ meetingLink, audioPath, referencePath, port, liveProvider }) {
+async function record({ meetingLink, audioPath, referencePath, port, liveProvider, synthetic = null }) {
   const pcm = await decodeToPcm(audioPath, SEND_RATE);
   const clipSeconds = pcm.length / 2 / SEND_RATE;
   console.log(`  Clip       ${audioPath} (${clipSeconds.toFixed(1)}s)`);
@@ -175,7 +175,13 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
       // Only for a --live-provider: from both bots having left the call to
       // the first poll that saw the live transcript finished.
       live_transcript: live,
-      clip: { path: path.relative(process.cwd(), audioPath).split(path.sep).join("/"), sha256: sha256File(audioPath), seconds: +clipSeconds.toFixed(3) },
+      clip: {
+        path: path.relative(process.cwd(), audioPath).split(path.sep).join("/"),
+        sha256: sha256File(audioPath),
+        seconds: +clipSeconds.toFixed(3),
+        // Set when the clip is text-to-speech of a typed script (which engine).
+        ...(synthetic ? { synthetic_speech: synthetic } : {}),
+      },
       reference: { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) },
     };
     fs.mkdirSync("recordings", { recursive: true });

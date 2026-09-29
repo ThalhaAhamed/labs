@@ -41,6 +41,12 @@ Consequences:
 - One recording gives **one turnaround sample per provider**. To sample turnaround more than once, record again (`npm run record`, then `npm run benchmark`) and compare runs.
 - Benchmarking a bot where a provider already ran scores the transcript from that earlier run. Accuracy is still comparable (same recording, and the note says if the config differed), but turnaround shows as "–" and `results.md` explains why.
 
+**Typed scripts.** Instead of a clip, the speaker bot can read out text you type (`--script`, or "Type what the bot says" in the app), using the operating system's text-to-speech:
+- Windows uses System.Speech, macOS uses `say`, and Linux uses `espeak-ng`.
+- The text you type is the reference, so accuracy needs no separate transcript.
+- Synthetic speech is steadier and clearer than people talking, so WER on it reads lower. Compare providers against each other on the same script, not against results from human speech.
+- `run.json` records which engine spoke it (`clip.synthetic_speech`).
+
 You can also benchmark any existing bot (`--bot-id`) that recorded speech you have a verbatim reference for. Step 2 is the same.
 
 ## The sample clip

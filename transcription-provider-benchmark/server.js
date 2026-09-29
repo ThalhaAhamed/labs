@@ -27,6 +27,8 @@ const { spawn } = require("child_process");
 const express = require("express");
 const { PROVIDERS } = require("./src/providers");
 const { RATES, PRICES_AS_OF } = require("./src/pricing");
+const { ttsEngine } = require("./src/tts");
+const TTS = ttsEngine();
 
 const PORT = parseInt(process.env.UI_PORT || "4173", 10);
 const ROOT = __dirname;
@@ -64,6 +66,7 @@ app.get("/api/status", (_req, res) => {
     hasKey: Boolean(keys.MEETSTREAM_API_KEY),
     hasNgrok: Boolean(keys.NGROK_AUTHTOKEN),
     sampleReady: exists(SAMPLE_AUDIO) && exists(SAMPLE_REFERENCE),
+    tts: TTS?.name ?? null,
     busy: Boolean(current && !current.done),
     currentJob: current && !current.done ? current.id : null,
     currentMode: current && !current.done ? current.spec.mode : null,
@@ -290,8 +293,19 @@ app.post("/api/jobs", async (req, res) => {
   }
   if (referencePath && !exists(referencePath)) return res.status(400).json({ error: "Build the sample first (Get sample clip)." });
 
+  // A typed script: the recorder speaks it (--script) and it is the reference.
+  let scriptPath = null;
+  if (mode === "two-bot" && spec.audio?.kind === "script") {
+    if (!TTS) return res.status(400).json({ error: "No text-to-speech on this machine (on Linux, install espeak-ng)." });
+    if (!spec.audio.text?.trim()) return res.status(400).json({ error: "Type what the bot should say." });
+    fs.mkdirSync(dir, { recursive: true });
+    scriptPath = path.join(dir, "script.txt");
+    fs.writeFileSync(scriptPath, spec.audio.text);
+    if (spec.reference?.kind === "script") referencePath = null; // the CLI uses the script
+  }
+
   let audioPath = null;
-  if (mode === "two-bot") {
+  if (mode === "two-bot" && !scriptPath) {
     audioPath = spec.audio?.kind === "upload" && spec.audio.base64 ? saveUpload(dir, spec.audio.name, spec.audio.base64) : SAMPLE_AUDIO;
     if (!exists(audioPath)) return res.status(400).json({ error: "Build the sample first (Get sample clip), or upload audio." });
   }
@@ -310,7 +324,8 @@ app.post("/api/jobs", async (req, res) => {
       if (mode === "recorder") {
         args.push("--listener-only", "--bot-name", spec.botName?.trim() || "Benchmark Recorder", "--max-minutes", String(spec.maxMinutes || 30));
       } else {
-        args.push("--audio", rel(audioPath));
+        if (scriptPath) args.push("--script", rel(scriptPath));
+        else args.push("--audio", rel(audioPath));
       }
       if (referencePath) args.push("--reference", rel(referencePath));
       setState(job, { phase: "joining" });

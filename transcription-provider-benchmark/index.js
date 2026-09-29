@@ -6,7 +6,7 @@ const { selectProviders } = require("./src/providers");
 
 const USAGE = `
   npm run fetch-sample                     build sample/clip.wav + sample/reference.txt
-  npm run record    [-- --audio F --reference F]
+  npm run record    [-- --audio F --reference F | --script text.txt]
                                            two bots join MEETING_LINK; one plays the clip, one records it
   npm run record    -- --listener-only [--bot-name N --reference F --max-minutes M]
                                            one bot records whatever people say or play in the call
@@ -35,6 +35,7 @@ async function main() {
       append: { type: "string" },
       "live-provider": { type: "string" },
       "listener-only": { type: "boolean", default: false },
+      script: { type: "string" },
       "bot-name": { type: "string" },
       "max-minutes": { type: "string", default: "30" },
       providers: { type: "string" },
@@ -58,12 +59,28 @@ async function main() {
         });
         break;
       }
-      if (!fs.existsSync(values.audio)) throw new Error(`${values.audio} not found. Run \`npm run fetch-sample\` first.`);
+      // --script: the speaker bot reads out typed text (this machine's
+      // text-to-speech), and that text is the exact reference.
+      let audioPath = values.audio;
+      let referencePath = values.reference ?? "sample/reference.txt";
+      let synthetic = null;
+      if (values.script) {
+        const { synthesize } = require("./src/tts");
+        const text = fs.readFileSync(values.script, "utf8");
+        const dir = path.join("uploads", `script-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+        const speech = await synthesize(text, dir);
+        console.log(`  Spoke the script with ${speech.engine} -> ${speech.file}`);
+        audioPath = speech.file;
+        referencePath = values.reference ?? path.join(dir, "script.txt");
+        synthetic = speech.engine;
+      }
+      if (!fs.existsSync(audioPath)) throw new Error(`${audioPath} not found. Run \`npm run fetch-sample\` first.`);
       const { record } = require("./src/recorder");
       await record({
         meetingLink: process.env.MEETING_LINK,
-        audioPath: values.audio,
-        referencePath: values.reference ?? "sample/reference.txt",
+        audioPath,
+        referencePath,
+        synthetic,
         liveProvider: values["live-provider"] ? selectProviders(values["live-provider"])[0] : undefined,
         port: parseInt(process.env.PORT || "3000", 10),
       });

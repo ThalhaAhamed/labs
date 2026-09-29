@@ -76,9 +76,15 @@
             <fieldset class="field">
               <legend>Audio to play</legend>
               <label class="inline"><input type="radio" name="audio" value="sample" checked> Sample clip (3 min of LibriSpeech, exact transcript)</label>
+              <label class="inline"><input type="radio" name="audio" value="script"> Type what the bot says</label>
               <label class="inline"><input type="radio" name="audio" value="upload"> My own audio file
                 <input id="audioFile" type="file" accept="audio/*,video/*"></label>
             </fieldset>
+            <div id="scriptBox" class="field" hidden>
+              <label for="scriptText">What the bot says</label>
+              <textarea id="scriptText" rows="7" placeholder="Type the words the speaker bot should say in the meeting…"></textarea>
+              <p class="hint" id="scriptHint"></p>
+            </div>
             <p class="hint">Admit both bots when they reach the lobby, and keep everyone muted while the clip plays.</p>
           </div>
 
@@ -102,6 +108,8 @@
           <h3><span class="step">02 · Reference</span>What was actually said</h3>
           <p class="hint">Accuracy (WER) needs a word-for-word transcript. Without one you still get turnaround and cost.</p>
           <div class="choices compact" role="radiogroup" aria-label="Reference transcript">
+            <label class="choice" id="scriptRefChoice" hidden><input type="radio" name="reference" value="script">
+              <strong>What the bot says</strong><span>Your script, word for word: the exact reference.</span></label>
             <label class="choice"><input type="radio" name="reference" value="sample">
               <strong>The sample clip's transcript</strong><span id="sampleNote">Use when the sample clip was played.</span></label>
             <label class="choice"><input type="radio" name="reference" value="text">

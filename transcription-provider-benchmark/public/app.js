@@ -81,10 +81,20 @@ function updateSetup() {
   // A sensible reference default when the source changes: the sample's
   // transcript goes with the sample clip; otherwise none until one is given.
   if (m !== lastMode) {
-    const ref = m === "two-bot" && audioKind() === "sample" ? "sample" : "none";
+    const ref = m === "two-bot" ? (audioKind() === "sample" ? "sample" : audioKind() === "script" ? "script" : "none") : "none";
     $(`input[name="reference"][value="${ref}"]`).checked = true;
     lastMode = m;
   }
+  // Typed script: the bot speaks it with this machine's text-to-speech, and it
+  // is offered (and preselected) as the reference.
+  const scripted = m === "two-bot" && audioKind() === "script";
+  $("#scriptBox").hidden = !scripted;
+  $("#scriptRefChoice").hidden = !scripted;
+  if (!scripted && refKind() === "script") $('input[name="reference"][value="none"]').checked = true;
+  $('input[name="audio"][value="script"]').disabled = !status.tts;
+  $("#scriptHint").textContent = status.tts
+    ? `The speaker bot reads this out with this computer's text-to-speech (${status.tts}). Synthetic speech is cleaner than people talking, so accuracy reads higher than on real speech.`
+    : "No text-to-speech on this computer. On Linux, install espeak-ng.";
   $("#referenceText").hidden = refKind() !== "text";
 
   const needsSample = (m === "two-bot" && audioKind() === "sample") || refKind() === "sample";
@@ -100,7 +110,7 @@ function updateSetup() {
 }
 
 $$('input[name="mode"], input[name="audio"], input[name="reference"]').forEach((i) => i.addEventListener("change", () => {
-  if (i.name === "audio") $(`input[name="reference"][value="${audioKind() === "sample" ? "sample" : "none"}"]`).checked = true;
+  if (i.name === "audio") $(`input[name="reference"][value="${audioKind() === "sample" ? "sample" : audioKind() === "script" ? "script" : "none"}"]`).checked = true;
   updateSetup();
 }));
 
@@ -176,7 +186,11 @@ $("#runButton").addEventListener("click", async () => {
   button.disabled = true;
   try {
     if (m === "two-bot") {
-      if (audioKind() === "upload") {
+      if (audioKind() === "script") {
+        const text = $("#scriptText").value;
+        if (!text.trim()) throw new Error("Type what the bot should say.");
+        spec.audio = { kind: "script", text };
+      } else if (audioKind() === "upload") {
         const file = $("#audioFile").files[0];
         if (!file) throw new Error("Choose an audio file, or use the sample clip.");
         button.textContent = "Uploading audio…";
@@ -460,7 +474,7 @@ async function showRun(id) {
   const when = data.started_at ? new Date(data.started_at) : null;
   const specs = [
     ["Run", when ? when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : id],
-    ["Audio", recording?.clip ? `${recording.clip.path.split("/").pop()} · ${recording.clip.seconds.toFixed(0)} s clip` : recording ? `Live speech${recording.bot_name ? ` · ${recording.bot_name}` : ""}` : "Existing recording"],
+    ["Audio", recording?.clip?.synthetic_speech ? `Typed script · ${recording.clip.synthetic_speech} · ${recording.clip.seconds.toFixed(0)} s` : recording?.clip ? `${recording.clip.path.split("/").pop()} · ${recording.clip.seconds.toFixed(0)} s clip` : recording ? `Live speech${recording.bot_name ? ` · ${recording.bot_name}` : ""}` : "Existing recording"],
     ["Billed audio", results.billed_audio_seconds ? `${(results.billed_audio_seconds / 60).toFixed(2)} min` : "–"],
     ["Reference", scored ? `${results.reference_words} words` : "None (speed and cost only)"],
     ["Platform", recording?.meeting_platform ?? "–"],

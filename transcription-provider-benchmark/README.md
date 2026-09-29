@@ -96,7 +96,7 @@ npm run ui
 
 Then open http://localhost:4173. The page walks through the same steps as the command line:
 
-1. **Pick where the audio comes from:** a bot's existing recording, a meeting where a bot plays a clip (the sample, or your own file), or a meeting where people just talk.
+1. **Pick where the audio comes from:** a bot's existing recording, a meeting where a bot plays a clip (the sample, text you type for it to say, or your own file), or a meeting where people just talk.
 2. **Say what was actually said:** the sample's transcript, your own transcript (pasted or loaded from a file), or none, which gives turnaround and cost only.
 3. **Tick the providers,** then run.
 
@@ -139,6 +139,7 @@ npm run benchmark -- --providers meetstream,deepgram
 npm run benchmark -- --poll 2                 # finer turnaround resolution
 npm run benchmark -- --reference my-ref.txt   # verbatim transcript of what was said
 npm run record -- --audio call.m4a --reference call.txt   # your own audio (any format ffmpeg reads)
+npm run record -- --script what-to-say.txt   # the speaker bot reads your text aloud; the text is the reference
 npm run record -- --live-provider assemblyai  # fallback: transcribe live with a provider the re-transcribe endpoint refuses
 npm run benchmark -- --bot-id <id> --providers jigsawstack --append results/<run>   # re-run one provider into an existing run
 npm run score -- results/<run>                # re-score a finished run, no API key needed
