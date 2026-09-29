@@ -9,11 +9,9 @@
 <body>
   <header class="top">
     <div class="brand">
-      <span class="logo" aria-hidden="true">◆</span>
-      <div>
-        <h1>Transcription Benchmark</h1>
-        <p class="sub">Same audio, every provider: accuracy, turnaround and cost side by side</p>
-      </div>
+      <span class="wordmark"><svg viewBox="0 0 94 90" width="22" height="21" aria-hidden="true"><rect width="94" height="90" rx="13" fill="#FC6413"/><rect x="17" y="42" width="33" height="32" rx="4.5" fill="#111"/><path d="M51 16 77 29 51 42Z" fill="#111"/></svg> MeetStream</span>
+      <span class="divider" aria-hidden="true"></span>
+      <h1>Transcription Benchmark</h1>
     </div>
     <button class="pill" id="keysButton" type="button">
       <span class="dot" id="keyDot"></span><span id="keyLabel">Checking key…</span>
@@ -30,7 +28,10 @@
     <main id="main">
       <!-- New run -->
       <section id="setupView" class="view">
-        <h2 class="view-title">New run</h2>
+        <div>
+          <h2 class="view-title">New benchmark</h2>
+          <p class="lede">Send the same audio to every transcription provider and compare accuracy, turnaround and cost side by side.</p>
+        </div>
 
         <div class="card" id="keysCard" hidden>
           <h3>Keys</h3>
@@ -45,7 +46,7 @@
         </div>
 
         <div class="card">
-          <h3><span class="step">1</span> Where the audio comes from</h3>
+          <h3><span class="step">01 · Source</span>Where the audio comes from</h3>
           <div class="choices" role="radiogroup" aria-label="Audio source">
             <label class="choice"><input type="radio" name="mode" value="existing" checked>
               <strong>A recording that already exists</strong>
@@ -99,7 +100,7 @@
         </div>
 
         <div class="card">
-          <h3><span class="step">2</span> What was actually said</h3>
+          <h3><span class="step">02 · Reference</span>What was actually said</h3>
           <p class="hint">Accuracy (WER) needs a word-for-word transcript. Without one you still get turnaround and cost.</p>
           <div class="choices compact" role="radiogroup" aria-label="Reference transcript">
             <label class="choice"><input type="radio" name="reference" value="sample">
@@ -120,7 +121,7 @@
         </div>
 
         <div class="card">
-          <h3><span class="step">3</span> Providers</h3>
+          <h3><span class="step">03 · Providers</span>Who transcribes it</h3>
           <div id="providerList" class="providers"></div>
           <p class="hint" id="pricesNote"></p>
         </div>
@@ -133,7 +134,10 @@
 
       <!-- Live run -->
       <section id="liveView" class="view" hidden>
-        <h2 class="view-title">Running</h2>
+        <div>
+          <span class="label step">Live</span>
+          <h2 class="view-title">Running</h2>
+        </div>
         <ol class="stepper" id="stepper"></ol>
         <div class="card">
           <div class="live-head">
@@ -156,8 +160,9 @@
       <section id="resultView" class="view" hidden>
         <div class="result-head">
           <div>
+            <span class="label">Result</span>
             <h2 class="view-title" id="resultTitle">Results</h2>
-            <p class="muted" id="resultMeta"></p>
+            <p class="lede" id="resultMeta"></p>
           </div>
           <div class="downloads" id="downloads"></div>
         </div>
