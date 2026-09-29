@@ -68,13 +68,14 @@ A provider you haven't connected still appears in the results, marked "not run" 
 
 ## Desktop app (Windows, macOS, Linux)
 
-The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Install it, [connect the providers](#before-your-first-run-connect-the-providers) in MeetStream if you haven't yet, and open **Transcriber Benchmark**.
+The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Download it from the **[Transcriber Benchmark 1.0.0 release](https://github.com/ThalhaAhamed/labs/releases/tag/transcriber-benchmark-v1.0.0)**, [connect the providers](#before-your-first-run-connect-the-providers) in MeetStream if you haven't yet, and open **Transcriber Benchmark**.
 
 | OS | Installer |
 |---|---|
-| Windows 10/11 (x64) | `Transcriber-Benchmark-Setup-<version>.exe` |
-| macOS (Apple silicon or Intel) | `Transcriber-Benchmark-<version>-<arch>.dmg` |
-| Linux (x64) | `.AppImage` (make it executable and run it), or `.deb` (`sudo apt install ./<file>.deb`) |
+| Windows 10/11 (x64) | `Transcriber-Benchmark-Setup-1.0.0.exe` |
+| macOS, Apple silicon | `Transcriber-Benchmark-1.0.0-arm64.dmg` |
+| macOS, Intel | `Transcriber-Benchmark-1.0.0-x64.dmg` |
+| Linux (x64) | `Transcriber-Benchmark-1.0.0-x86_64.AppImage` (make it executable and run it), or `Transcriber-Benchmark-1.0.0-amd64.deb` (`sudo apt install ./<file>.deb`) |
 
 The installers aren't code-signed yet, so the first launch asks you to confirm:
 - **Windows:** SmartScreen shows "More info → Run anyway".
