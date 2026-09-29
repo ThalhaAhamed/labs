@@ -54,7 +54,7 @@ def render(simple=False):
                 d.ellipse([x - r, y - r, x + r, y + r], fill=ON)
 
     # Ring, open at the top right where the arrow leaves it.
-    R, RW = 410, 44 * k
+    R, RW = 410, 54 * k
     if not simple:
         d.arc([C - w(R), C - w(R), C + w(R), C + w(R)], start=-24, end=292, fill=ON, width=w(RW))
 
@@ -114,13 +114,13 @@ def render(simple=False):
 
 
 def compose(simple=False):
-    """The mark in white on the tile, cropped to its own bounds and filling 72%
+    """The mark in white on the tile, cropped to its own bounds and filling 84%
     of the tile (74% for the simple one)."""
     mark = render(simple)
     mark = mark.crop(mark.getbbox())
     inset = w(40)                                        # tile margin, like other app icons
     side = S - 2 * inset
-    fit = side * (0.74 if simple else 0.72)
+    fit = side * (0.74 if simple else 0.84)
     scale = fit / max(mark.size)
     mark = mark.resize((round(mark.width * scale), round(mark.height * scale)), Image.LANCZOS)
 
