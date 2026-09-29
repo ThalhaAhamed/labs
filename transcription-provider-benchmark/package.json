@@ -44,15 +44,15 @@
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3"
   },
-  "productName": "MeetStream Transcription Benchmark",
+  "productName": "Transcriber Benchmark",
   "author": {
     "name": "MeetStream Labs",
     "url": "https://meetstream.ai"
   },
   "homepage": "https://github.com/meetstream-ai/labs/tree/main/transcription-provider-benchmark",
   "build": {
-    "appId": "ai.meetstream.transcription-benchmark",
-    "productName": "MeetStream Transcription Benchmark",
+    "appId": "ai.meetstream.transcriber-benchmark",
+    "productName": "Transcriber Benchmark",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -82,7 +82,7 @@
           ]
         }
       ],
-      "artifactName": "MeetStream-Transcription-Benchmark-Setup-${version}.${ext}",
+      "artifactName": "Transcriber-Benchmark-Setup-${version}.${ext}",
       "icon": "build/icon.ico"
     },
     "nsis": {
@@ -92,14 +92,14 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
-      "shortcutName": "Transcription Benchmark"
+      "shortcutName": "Transcriber Benchmark"
     },
     "mac": {
       "target": [
         "dmg"
       ],
       "category": "public.app-category.developer-tools",
-      "artifactName": "MeetStream-Transcription-Benchmark-${version}-${arch}.${ext}",
+      "artifactName": "Transcriber-Benchmark-${version}-${arch}.${ext}",
       "icon": "build/icon.icns"
     },
     "linux": {
@@ -110,11 +110,11 @@
       "category": "Development",
       "synopsis": "Compare transcription providers on the same audio",
       "maintainer": "MeetStream Labs",
-      "artifactName": "MeetStream-Transcription-Benchmark-${version}-${arch}.${ext}",
+      "artifactName": "Transcriber-Benchmark-${version}-${arch}.${ext}",
       "icon": "build/icon.png",
       "syncDesktopName": true,
-      "executableName": "meetstream-transcription-benchmark"
+      "executableName": "transcriber-benchmark"
     }
   },
-  "desktopName": "meetstream-transcription-benchmark.desktop"
+  "desktopName": "transcriber-benchmark.desktop"
 }

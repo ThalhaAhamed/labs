@@ -7,9 +7,9 @@
  *
  * Data (runs, recordings, the sample clip, uploads) lives in the app's user
  * data folder, since an installed app cannot write next to its own files:
- *   Windows  %APPDATA%\MeetStream Transcription Benchmark
- *   macOS    ~/Library/Application Support/MeetStream Transcription Benchmark
- *   Linux    ~/.config/MeetStream Transcription Benchmark
+ *   Windows  %APPDATA%\Transcriber Benchmark
+ *   macOS    ~/Library/Application Support/Transcriber Benchmark
+ *   Linux    ~/.config/Transcriber Benchmark
  * API keys typed into the page are kept there too, encrypted with the OS key
  * store (Electron safeStorage), so they survive restarts.
  */
@@ -28,7 +28,7 @@ if (!app.requestSingleInstanceLock()) {
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
   app.whenReady().then(launch).catch((err) => {
-    dialog.showErrorBox("Transcription Benchmark could not start", String(err?.stack ?? err));
+    dialog.showErrorBox("Transcriber Benchmark could not start", String(err?.stack ?? err));
     app.quit();
   });
 }
@@ -87,7 +87,7 @@ async function launch() {
   const { start } = require(path.join(APP_ROOT, "server.js"));
   const { port } = await start({ port: 0, store: keyStore(dataDir) });
   const url = `http://127.0.0.1:${port}/`;
-  console.log(`Transcription Benchmark serving ${url} (data: ${dataDir})`);
+  console.log(`Transcriber Benchmark serving ${url} (data: ${dataDir})`);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
@@ -111,7 +111,7 @@ async function launch() {
     height: 900,
     minWidth: 380,
     minHeight: 560,
-    title: "Transcription Benchmark",
+    title: "Transcriber Benchmark",
     backgroundColor: "#0E0E13",
     show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },

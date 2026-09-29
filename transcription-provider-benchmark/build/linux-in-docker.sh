@@ -29,7 +29,7 @@ npm ci --no-fund --no-audit --loglevel=error
 npx electron-builder --linux --x64 --publish never 2>&1 | grep -v "duplicate dependency"
 
 echo "== smoke test the unpacked app"
-BIN=/work/dist/linux-unpacked/meetstream-transcription-benchmark
+BIN=/work/dist/linux-unpacked/transcriber-benchmark
 UD=/tmp/tpb-test
 xvfb-run -a "$BIN" --no-sandbox --user-data-dir="$UD" > /tmp/app.log 2>&1 &
 PORT=""

@@ -1,4 +1,4 @@
-// Transcription Benchmark UI. Talks to server.js, which runs the same
+// Transcriber Benchmark UI. Talks to server.js, which runs the same
 // `record` / `benchmark` commands as the CLI and streams their progress.
 
 const $ = (sel, root = document) => root.querySelector(sel);

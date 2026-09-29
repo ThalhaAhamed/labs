@@ -63,9 +63,8 @@ code { font-family: var(--mono); font-size: .85em; background: var(--card-2); bo
   backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
 }
 .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.wordmark { display: inline-flex; align-items: center; gap: .5rem; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
-.divider { width: 1px; height: 22px; background: var(--line); }
-.top h1 { font-size: 15px; font-weight: 500; letter-spacing: -.01em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.top h1 { font-size: 16px; font-weight: 600; letter-spacing: -.02em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pill {
   display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; white-space: nowrap; flex-shrink: 0;
   border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); font: 500 13px var(--sans); cursor: pointer;
@@ -230,7 +229,7 @@ details.provider-detail summary .muted { font-weight: 400; font-size: .8125rem; 
   .choices { grid-template-columns: 1fr; }
   .row { flex-direction: column; align-items: stretch; }
   .stepper { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }
-  .divider, .top h1 { display: none; }
+  .top h1 { font-size: 15px; }
   .actions { flex-direction: column-reverse; align-items: stretch; }
 }
 @media (prefers-reduced-motion: reduce) {
