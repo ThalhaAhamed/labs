@@ -3,6 +3,8 @@
 - Recording: bot `88ba4098-3ab4-4c0c-b56c-3e5416f0f782` on meet.google.com, clip `sample/clip.wav` (191.435s, sha256 `f2d2ec68f98c…`)
 - Reference: 420 words after normalisation (sha256 `aed990bbd046…`)
 - Rounds: 1, all providers submitted together each round; turnaround polled every 5s
+- Harness: commit not recorded (this run predates recording it)
+- Models as reported by each provider: Mia Transcribe (not reported); JigsawStack (not reported); AssemblyAI universal-2 (assemblyai_default, assemblyai_default); Deepgram general-nova-3 2025-07-31.0; Sarvam (not reported)
 - Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with `npm run score -- results/2026-09-28T18-08-58Z`
 
 | Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time | Cost | Per hour |

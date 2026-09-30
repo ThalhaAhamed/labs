@@ -15,6 +15,7 @@ const { PROVIDERS } = require("./providers");
 const { textSha256 } = require("./audio");
 const { score } = require("./report");
 const { transcriptText } = require("./transcript");
+const { harnessInfo } = require("./version");
 
 const STILL_RECORDING = new Set(["Scheduled", "Joining", "InWaitingRoom", "InMeeting", "Recording", "Leaving", "Stopped", "MediaProcessing"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -276,6 +277,8 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
   } : {
     run_id: runId,
     harness: "meetstream-ai/labs transcription-provider-benchmark",
+    // The exact code that produced this run: version, commit, uncommitted changes.
+    harness_version: harnessInfo(),
     started_at: jobs[0]?.submitted_at,
     environment: { node: process.version, platform: `${os.platform()} ${os.release()}`, poll_seconds: pollSeconds },
     bot: { id: botId, status_when_benchmarked: botStatus },

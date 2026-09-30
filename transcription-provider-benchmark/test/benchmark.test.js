@@ -246,6 +246,42 @@ test("turnaround is reported as the window it's known to, and a separately submi
   }
 });
 
+test("a run records the harness version and commit, and the model each provider reports", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => ({ transcript_id: "t-deepgram" });
+  api.listTranscriptions = async () => [{ transcript_id: "t-deepgram", provider: "deepgram", status: "Success" }];
+  api.getTranscript = async (_id, opts) => (opts?.raw
+    ? { metadata: { duration: 12, model_info: { x: { name: "general-nova-3", version: "2025-07-31.0", arch: "nova-3" } } }, results: {} }
+    : [{ start_time: 0, transcript: OUTPUTS.deepgram }]);
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-15", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
+    assert.equal(run.harness_version.version, require("../package.json").version);
+    assert.ok(run.harness_version.commit === null || /^[0-9a-f]{40}$/.test(run.harness_version.commit));
+    const [row] = JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8")).providers;
+    assert.equal(row.model_reported, "general-nova-3 2025-07-31.0");
+    const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
+    assert.match(md, /^- Harness: version \d/m);
+    assert.match(md, /Deepgram general-nova-3 2025-07-31\.0/);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("two providers with the very same transcript are flagged as one engine", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
   const cwd = process.cwd();

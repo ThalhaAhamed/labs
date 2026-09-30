@@ -13,6 +13,22 @@ const { textSha256 } = require("./audio");
 
 const NORMALIZER = "src/wer.js normalize() (see METHODOLOGY.md)";
 
+/** The model a provider reports in its raw response, or null if it doesn't say. */
+function modelReported(provider, raw) {
+  if (!raw || typeof raw !== "object") return null;
+  if (provider === "deepgram") {
+    const models = Object.values(raw.metadata?.model_info ?? {}).map((m) => [m.name, m.version].filter(Boolean).join(" "));
+    return models.length ? models.join(", ") : null;
+  }
+  if (provider === "assemblyai") {
+    const model = raw.speech_model ?? (Array.isArray(raw.speech_models) ? raw.speech_models.join(", ") : null);
+    const extra = [raw.acoustic_model, raw.language_model].filter(Boolean).join(", ");
+    return model ? `${model}${extra ? ` (${extra})` : ""}` : null;
+  }
+  const generic = raw.model ?? raw.model_name ?? raw.model_version;
+  return typeof generic === "string" ? generic : null;
+}
+
 function median(xs) {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -188,6 +204,9 @@ function score(runDir) {
     rawByProvider.set(provider, rawOf(job));
   }
   const billedSeconds = audioSeconds([...rawByProvider.values()]);
+  // The model each provider says it ran. "nova-3" or "universal-2" in the
+  // request are aliases that move over time; this is what actually ran.
+  for (const row of rows.filter((r) => r.ran)) row.model_reported = modelReported(row.provider, rawByProvider.get(row.provider));
   for (const row of rows.filter((r) => r.ran)) {
     const c = costOf(row.provider, { seconds: billedSeconds, raw: rawByProvider.get(row.provider), config: run.providers[row.provider] });
     Object.assign(row, { cost_usd: c?.cost_usd ?? null, cost_per_hour_usd: c?.per_hour_usd ?? null, cost_basis: c?.basis ?? null, cost_source: c?.source ?? null });
@@ -227,6 +246,12 @@ function renderMarkdown(run, results) {
       (run.reference.added_at ? `, added after the run on ${run.reference.added_at.slice(0, 10)}` : "")
     : "- Reference: none, so accuracy is not scored; the table reports turnaround and how many words each provider transcribed");
   L.push(`- Rounds: ${run.rounds}, all providers submitted together each round; turnaround polled every ${results.poll_seconds}s`);
+  const h = run.harness_version;
+  L.push(h
+    ? `- Harness: version ${h.version}, commit ${h.commit ? `\`${h.commit.slice(0, 12)}\`${h.dirty ? " with uncommitted changes" : ""}` : "unknown"}`
+    : "- Harness: commit not recorded (this run predates recording it)");
+  const models = results.providers.filter((r) => r.ran).map((r) => `${displayName(r.provider)} ${r.model_reported ?? "(not reported)"}`);
+  if (models.length) L.push(`- Models as reported by each provider: ${models.join("; ")}`);
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");
 
   if (!run.reference) {

@@ -7,8 +7,18 @@
  * ELECTRON_CACHE, this passes it through, so the choice stays on your machine
  * and out of package.json. Its own tool cache already follows
  * ELECTRON_BUILDER_CACHE.
+ *
+ * It also stamps the git commit into build-info.json, which the app records
+ * in every run (a packaged app has no .git to ask).
  */
 const { spawnSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const { harnessInfo } = require("../src/version");
+
+const info = harnessInfo();
+fs.writeFileSync(path.join(__dirname, "..", "build-info.json"),
+  JSON.stringify({ commit: info.commit, dirty: info.dirty, built_at: new Date().toISOString() }, null, 2) + "\n");
 
 const args = process.argv.slice(2);
 if (process.env.ELECTRON_CACHE) args.push(`--config.electronDownload.cache=${process.env.ELECTRON_CACHE}`);

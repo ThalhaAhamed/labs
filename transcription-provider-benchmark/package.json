@@ -60,6 +60,7 @@
     "files": [
       "package.json",
       "index.js",
+      "build-info.json",
       "server.js",
       "src/**",
       "scripts/fetch-sample.js",

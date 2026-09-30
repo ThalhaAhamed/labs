@@ -92,6 +92,7 @@
       "same_output_as": [
         "jigsawstack"
       ],
+      "model_reported": null,
       "cost_usd": 0.007144297222222222,
       "cost_per_hour_usd": 0.1,
       "cost_basis": "$0.10/hr (MeetStream transcription add-on)",
@@ -183,6 +184,7 @@
       "same_output_as": [
         "meetstream"
       ],
+      "model_reported": null,
       "cost_usd": 0.0019493099999999999,
       "cost_per_hour_usd": 0.027284839073277948,
       "cost_basis": "$0.99 per 1M tokens (from the response's own usage)",
@@ -284,6 +286,7 @@
           "language_code": "en_us"
         }
       },
+      "model_reported": "universal-2 (assemblyai_default, assemblyai_default)",
       "cost_usd": 0.012145305277777777,
       "cost_per_hour_usd": 0.16999999999999998,
       "cost_basis": "$0.15/hr Universal-2 + $0.02/hr speaker labels",
@@ -403,6 +406,7 @@
           "language": "en"
         }
       },
+      "model_reported": "general-nova-3 2025-07-31.0",
       "cost_usd": 0.018432286833333335,
       "cost_per_hour_usd": 0.25800000000000006,
       "cost_basis": "$0.0043/min (Nova-3 pre-recorded)",
@@ -548,6 +552,7 @@
           "language_code": "en-IN"
         }
       },
+      "model_reported": null,
       "cost_usd": 0.033433171277038265,
       "cost_per_hour_usd": 0.4679700499168053,
       "cost_basis": "₹45/hr batch with diarization, at ₹96.16/$",

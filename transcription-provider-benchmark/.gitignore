@@ -15,3 +15,6 @@ uploads/
 
 # Desktop builds (npm run dist)
 dist/
+
+# Stamped by npm run dist (the commit the desktop app was built from)
+build-info.json

@@ -151,7 +151,7 @@ Details:
 Any result MeetStream publishes should include:
 
 1. The whole `results/<run>/` directory: `run.json`, the raw transcript JSON from every provider, the normalised texts, `results.md` and `results.json`.
-2. The commit of this harness used to produce it.
+2. The commit of this harness used to produce it. Runs record it themselves (`harness_version` in `run.json`, the "Harness" line in `results.md`), with a warning if the harness had uncommitted changes. Publish only runs made from a clean commit. Each provider's reported model (e.g. Deepgram's `general-nova-3 2025-07-31.0`) is recorded too, because the model names sent in requests are aliases that change over time.
 3. The `score_jiwer.py` table beside ours.
 4. This document, or a link to it, and the limitations above.
 
