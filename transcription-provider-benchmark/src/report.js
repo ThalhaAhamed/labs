@@ -3,6 +3,7 @@
  * calls, so anyone handed a published results/<run>/ folder can re-derive
  * every number in its table from the raw transcripts inside it.
  */
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { normalize, wer, clipWindow } = require("./wer");
@@ -171,7 +172,8 @@ function renderMarkdown(run, results) {
     : rec ? ", live speech (recorder only, no clip)" : "";
   L.push(`- Recording: bot \`${run.bot.id}\`${rec?.bot_name ? ` ("${rec.bot_name}")` : ""}${rec ? ` on ${rec.meeting_platform}` : ""}${clip}`);
   L.push(run.reference
-    ? `- Reference: ${results.reference_words} words after normalisation (sha256 \`${run.reference.sha256.slice(0, 12)}…\`)`
+    ? `- Reference: ${results.reference_words} words after normalisation (sha256 \`${run.reference.sha256.slice(0, 12)}…\`)` +
+      (run.reference.added_at ? `, added after the run on ${run.reference.added_at.slice(0, 10)}` : "")
     : "- Reference: none, so accuracy is not scored; the table reports turnaround and how many words each provider transcribed");
   L.push(`- Rounds: ${run.rounds}, all providers submitted together each round; turnaround polled every ${results.poll_seconds}s`);
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");
@@ -243,4 +245,27 @@ function renderMarkdown(run, results) {
   return L.join("\n") + "\n";
 }
 
-module.exports = { score };
+/**
+ * Adds a reference to a run that finished without one (people talking: what
+ * was said is only known afterwards), then scores it. The reference is copied
+ * into the run folder and marked as added later; a run that already has one
+ * keeps it.
+ */
+function addReference(runDir, referencePath) {
+  const runPath = path.join(runDir, "run.json");
+  const run = JSON.parse(fs.readFileSync(runPath, "utf8"));
+  if (run.reference) throw new Error(`${runDir} already has a reference; its accuracy is already scored.`);
+  const text = fs.readFileSync(referencePath, "utf8");
+  if (!normalize(text)) throw new Error("The reference is empty.");
+  fs.writeFileSync(path.join(runDir, "reference.txt"), text);
+  run.reference = {
+    file: "reference.txt",
+    source: path.basename(referencePath),
+    sha256: crypto.createHash("sha256").update(text).digest("hex"),
+    added_at: new Date().toISOString(),
+  };
+  fs.writeFileSync(runPath, JSON.stringify(run, null, 2) + "\n");
+  return score(runDir);
+}
+
+module.exports = { score, addReference };

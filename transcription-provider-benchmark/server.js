@@ -239,6 +239,24 @@ app.get("/api/runs/:id", (req, res) => {
   });
 });
 
+// A run without a reference (people talking): add what was said afterwards and
+// score it, via `index.js score <run> --reference <file>` like the terminal.
+app.post("/api/runs/:id/reference", (req, res) => {
+  const id = req.params.id;
+  const dir = path.join(RESULTS, id);
+  if (!RUN_ID.test(id) || !exists(path.join(dir, "run.json"))) return res.status(404).json({ error: "No such run" });
+  const text = String(req.body?.text ?? "");
+  if (!text.trim()) return res.status(400).json({ error: "Paste what was said." });
+  if (current && !current.done) return res.status(409).json({ error: "Wait for the current run to finish." });
+  fs.mkdirSync(UPLOADS, { recursive: true });
+  const file = path.join(UPLOADS, `${id}-reference.txt`);
+  fs.writeFileSync(file, text);
+  const child = runNode(path.join(ROOT, "index.js"), ["score", path.relative(DATA, dir), "--reference", path.relative(DATA, file)]);
+  let err = "";
+  child.stderr.on("data", (c) => (err += c));
+  child.on("close", (code) => (code === 0 ? res.json({ ok: true }) : res.status(400).json({ error: err.trim() || "Scoring failed." })));
+});
+
 app.get("/api/runs/:id/download/:file", (req, res) => {
   const { id, file } = req.params;
   if (!RUN_ID.test(id) || !["results.md", "results.json", "run.json"].includes(file)) return res.sendStatus(404);

@@ -58,6 +58,42 @@ test("without a reference transcript the run reports turnaround and word counts,
   }
 });
 
+test("a reference added after the run scores it, marked as added later, and can't be added twice", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  let n = 0;
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => ({ transcript_id: `t-${++n}` });
+  api.listTranscriptions = async () => Array.from({ length: n }, (_, i) => ({ transcript_id: `t-${i + 1}`, provider: "deepgram", status: "Success" }));
+  api.getTranscript = async () => [{ start_time: 0, transcript: "Hello everyone, thanks for joining." }];
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const { addReference } = require("../src/report");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-9", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    fs.writeFileSync("said.txt", "hello everyone thanks for joining us");
+    const { results } = addReference(runDir, "said.txt");
+    assert.equal(results.reference_words, 6);
+    assert.ok(Math.abs(results.providers[0].wer - 1 / 6) < 1e-9); // "us" missed
+    const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
+    assert.match(run.reference.added_at, /^\d{4}-/);
+    assert.equal(fs.readFileSync(path.join(runDir, "reference.txt"), "utf8"), "hello everyone thanks for joining us");
+    assert.match(fs.readFileSync(path.join(runDir, "results.md"), "utf8"), /added after the run on/);
+    assert.throws(() => addReference(runDir, "said.txt"), /already has a reference/);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("noReference ignores the reference saved with the recording; without it, the saved one is used", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
   const cwd = process.cwd();

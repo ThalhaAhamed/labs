@@ -17,6 +17,8 @@ const USAGE = `
   their own; your own --audio needs --reference. A recording remembers its
   reference, so benchmark uses it unless you pass another or --no-reference.
   npm run score     -- results/<run>       re-score a finished run offline (no API key needed)
+  npm run score     -- results/<run> --reference F
+                                           add what was said to a run that had no reference, then score it
   npm run fetch-raw -- results/<run>       add providers' raw responses to an older run (for cost), then re-score
   npm run ui                               the same tool in your browser
 `;
@@ -135,9 +137,10 @@ async function main() {
       break;
     }
     case "score": {
-      if (!target) throw new Error("Usage: npm run score -- results/<run>");
-      const { score } = require("./src/report");
-      console.log(score(target).markdown);
+      if (!target) throw new Error("Usage: npm run score -- results/<run> [--reference F]");
+      const { score, addReference } = require("./src/report");
+      // --reference on a run that had none: add what was said, then score it.
+      console.log((values.reference ? addReference(target, values.reference) : score(target)).markdown);
       break;
     }
     default:

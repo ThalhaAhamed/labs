@@ -538,6 +538,29 @@ function tradeoff({ title, sub, rows, x, y }) {
 }
 
 let sortState = null;
+let shownRun = null;
+
+$("#addRefFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (file) $("#addRefText").value = await file.text();
+});
+$("#addRefButton").addEventListener("click", async (e) => {
+  const text = $("#addRefText").value;
+  if (!text.trim()) return ($("#addRefError").textContent = "Paste what was said first.");
+  e.target.disabled = true;
+  e.target.textContent = "Scoring…";
+  try {
+    await api(`/api/runs/${shownRun}/reference`, { method: "POST", body: { text } });
+    $("#addRefText").value = "";
+    await loadRuns();
+    await showRun(shownRun);
+  } catch (err) {
+    $("#addRefError").textContent = err.message;
+  } finally {
+    e.target.disabled = false;
+    e.target.textContent = "Score accuracy";
+  }
+});
 
 async function showRun(id) {
   const data = await api(`/api/runs/${id}`);
@@ -548,6 +571,10 @@ async function showRun(id) {
   const ran = results.providers.filter((p) => p.ran);
 
   $("#resultTitle").textContent = scored ? "Accuracy, speed and cost" : "Speed and cost";
+  // No reference yet (people talking): offer to add what was said and score it.
+  shownRun = id;
+  $("#addRefCard").hidden = scored;
+  $("#addRefError").textContent = "";
   const when = data.started_at ? new Date(data.started_at) : null;
   const specs = [
     ["Run", when ? when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : id],

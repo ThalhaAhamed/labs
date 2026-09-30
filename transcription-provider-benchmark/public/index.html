@@ -195,6 +195,18 @@
           <div class="downloads" id="downloads"></div>
         </div>
         <dl class="specs" id="specs"></dl>
+
+        <details class="card add-ref" id="addRefCard" hidden>
+          <summary><h3><span class="step">+</span>Add what was said, then score accuracy</h3></summary>
+          <p class="hint">This run has no reference, so it shows speed and cost only. Paste a word-for-word transcript of what was said in the meeting (or load a .txt file) and every provider's transcript is scored against it. The run is marked as scored after the fact.</p>
+          <textarea id="addRefText" rows="6" placeholder="Paste exactly what was said…"></textarea>
+          <div class="add-ref-actions">
+            <input id="addRefFile" type="file" accept=".txt,text/plain">
+            <p class="error" id="addRefError" role="alert"></p>
+            <button class="primary" id="addRefButton" type="button">Score accuracy</button>
+          </div>
+        </details>
+
         <div class="summary" id="summaryCards"></div>
 
         <div class="card table-card">

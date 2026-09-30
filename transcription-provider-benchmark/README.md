@@ -121,7 +121,8 @@ Then open http://localhost:4173. After [connecting the providers](#before-your-f
 While the run goes, the page shows each step and the full log. When it finishes you get:
 - a table of accuracy, turnaround and cost, with the best value in each column highlighted;
 - every word each provider got wrong, and its full transcript;
-- every past run in the sidebar, with `results.md` and `results.json` to download.
+- every past run in the sidebar, with `results.md` and `results.json` to download;
+- for a run without a reference (people talking, where you only know what was said afterwards), an **Add what was said** box. Paste the transcript and the run is scored for accuracy, marked as scored after the fact.
 
 About the app itself:
 - **It uses the command-line tool underneath.** Each run starts `node index.js record` / `benchmark` in the background, so a result from the page is the same as one from the terminal and lands in the same `results/` folder.
@@ -162,6 +163,7 @@ npm run record -- --script what-to-say.txt   # the speaker bot reads your text a
 npm run record -- --live-provider assemblyai  # fallback: transcribe live with a provider the re-transcribe endpoint refuses
 npm run benchmark -- --bot-id <id> --providers jigsawstack --append results/<run>   # re-run one provider into an existing run
 npm run score -- results/<run>                # re-score a finished run, no API key needed
+npm run score -- results/<run> --reference said.txt   # add what was said to a run that had no reference, then score it
 npm run fetch-raw -- results/<run>            # add providers' raw responses to an older run (needed for cost)
 npm run record -- --listener-only --bot-name "My Recorder"   # one bot records people talking; no speaker bot
 ```
