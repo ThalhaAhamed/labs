@@ -349,6 +349,7 @@ function runStep(job, args, env) {
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop();
       for (const raw of lines) {
+        // eslint-disable-next-line no-control-regex -- strips terminal colour codes (ESC [ … m)
         const line = raw.replace(/\u001b\[[0-9;]*m/g, "");
         if (!line.trim() || /^> /.test(line)) continue;
         job.log.push(line);

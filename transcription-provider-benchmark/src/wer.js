@@ -144,9 +144,10 @@ function normalize(text) {
   // Also combining marks (\p{M}): in Tamil, Hindi and other Indic scripts the
   // vowel signs are marks, and dropping them splits words apart and makes
   // different words look the same.
+  // NUL stands in for a decimal point while punctuation is removed.
   s = s.replace(/(\d)\.(\d)/g, "$1\u0000$2");
-  s = s.replace(/[^\p{L}\p{M}\p{N}'\u0000\s]/gu, " ");
-  s = s.replace(/\u0000/g, ".");
+  s = s.replace(/[^\p{L}\p{M}\p{N}'\u0000\s]/gu, " "); // eslint-disable-line no-control-regex
+  s = s.replace(/\u0000/g, "."); // eslint-disable-line no-control-regex
 
   const out = [];
   for (let word of s.split(/\s+/)) {

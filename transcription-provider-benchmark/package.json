@@ -11,6 +11,7 @@
     "fetch-raw": "node index.js fetch-raw",
     "ui": "node server.js",
     "test": "node --test",
+    "lint": "eslint .",
     "desktop": "electron .",
     "dist": "node build/dist.js",
     "dist:win": "node build/dist.js --win",
@@ -41,8 +42,11 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "electron": "^44.4.5",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0"
   },
   "productName": "Transcriber Benchmark",
   "author": {

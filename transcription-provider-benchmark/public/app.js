@@ -33,7 +33,7 @@ const secs = (x) => (x == null ? "–" : `${x.toFixed(1)} s`);
 const usd = (x) => (x == null ? "–" : `$${x < 0.01 ? x.toFixed(4) : x.toFixed(3)}`);
 const perHour = (x) => (x == null ? "–" : `$${x.toFixed(2)}/hr`);
 
-let status = { hasKey: false, hasNgrok: false, sampleReady: false };
+let appStatus = { hasKey: false, hasNgrok: false, sampleReady: false };
 
 // ── Views ───────────────────────────────────────────────────────────────────
 
@@ -46,11 +46,11 @@ function show(view) {
 // ── Status and keys ─────────────────────────────────────────────────────────
 
 async function refreshStatus() {
-  status = await api("/api/status");
-  $("#keyDot").className = `dot ${status.hasKey ? "ok" : "missing"}`;
-  $("#keyLabel").textContent = status.hasKey ? "MeetStream key set" : "MeetStream key needed";
+  appStatus = await api("/api/status");
+  $("#keyDot").className = `dot ${appStatus.hasKey ? "ok" : "missing"}`;
+  $("#keyLabel").textContent = appStatus.hasKey ? "MeetStream key set" : "MeetStream key needed";
   updateSetup();
-  return status;
+  return appStatus;
 }
 
 $("#keysButton").addEventListener("click", () => {
@@ -112,21 +112,21 @@ function updateSetup() {
   // Typed script: the bot speaks it with this machine's text-to-speech.
   const scripted = m === "two-bot" && audioKind() === "script";
   $("#scriptBox").hidden = !scripted;
-  $('input[name="audio"][value="script"]').disabled = !status.tts;
-  $("#scriptHint").textContent = status.tts
-    ? `The speaker bot reads this out with this computer's text-to-speech (${status.tts}). Synthetic speech is cleaner than people talking, so accuracy reads higher than on real speech.`
+  $('input[name="audio"][value="script"]').disabled = !appStatus.tts;
+  $("#scriptHint").textContent = appStatus.tts
+    ? `The speaker bot reads this out with this computer's text-to-speech (${appStatus.tts}). Synthetic speech is cleaner than people talking, so accuracy reads higher than on real speech.`
     : "No text-to-speech on this computer. On Linux, install espeak-ng.";
   $("#referenceText").hidden = refKind() !== "text";
 
   const needsSample = (m === "two-bot" && audioKind() === "sample") || refKind() === "sample";
   $("#sampleBox").hidden = !needsSample;
-  $("#sampleBox").classList.toggle("ok", status.sampleReady);
-  $("#sampleStatus").textContent = status.sampleReady
+  $("#sampleBox").classList.toggle("ok", appStatus.sampleReady);
+  $("#sampleStatus").textContent = appStatus.sampleReady
     ? "Sample clip ready: 191 s, 420 words (LibriSpeech, CC BY 4.0)."
     : "The sample clip hasn't been built yet (downloads about 10 MB once).";
-  $("#buildSample").hidden = status.sampleReady;
+  $("#buildSample").hidden = appStatus.sampleReady;
 
-  $("#keysCard").hidden = status.hasKey && !(m === "two-bot" && !status.hasNgrok);
+  $("#keysCard").hidden = appStatus.hasKey && !(m === "two-bot" && !appStatus.hasNgrok);
   $("#ngrokField").hidden = m !== "two-bot";
 }
 
@@ -736,7 +736,7 @@ async function showRun(id) {
 
 (async () => {
   await Promise.all([refreshStatus(), loadProviders(), loadRuns()]);
-  if (status.busy && status.currentJob) follow(status.currentJob, status.currentMode ?? "existing");
+  if (appStatus.busy && appStatus.currentJob) follow(appStatus.currentJob, appStatus.currentMode ?? "existing");
   else {
     const first = $("#runList button");
     if (first) showRun(first.dataset.run);
