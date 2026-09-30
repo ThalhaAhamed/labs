@@ -12,7 +12,7 @@ const os = require("os");
 const path = require("path");
 const api = require("./api");
 const { PROVIDERS } = require("./providers");
-const { sha256File } = require("./audio");
+const { textSha256 } = require("./audio");
 const { score } = require("./report");
 const { transcriptText } = require("./transcript");
 
@@ -280,7 +280,8 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
     environment: { node: process.version, platform: `${os.platform()} ${os.release()}`, poll_seconds: pollSeconds },
     bot: { id: botId, status_when_benchmarked: botStatus },
     recording, // null when benchmarking a bot this harness did not record
-    reference: referencePath ? { file: "reference.txt", source: referencePath, sha256: sha256File(referencePath) } : null,
+    // sha256 over LF line endings, so it checks out the same on every OS.
+    reference: referencePath ? { file: "reference.txt", source: referencePath, sha256: textSha256(referencePath), sha256_line_endings: "lf" } : null,
     providers: Object.fromEntries(providers.map((p) => [p, PROVIDERS[p]])),
     rounds,
     jobs: newJobs,

@@ -1,7 +1,7 @@
 # Transcription provider benchmark: 2026-09-28T18-08-58Z
 
 - Recording: bot `88ba4098-3ab4-4c0c-b56c-3e5416f0f782` on meet.google.com, clip `sample/clip.wav` (191.435s, sha256 `f2d2ec68f98c…`)
-- Reference: 420 words after normalisation (sha256 `a50b86819b71…`)
+- Reference: 420 words after normalisation (sha256 `aed990bbd046…`)
 - Rounds: 1, all providers submitted together each round; turnaround polled every 5s
 - Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with `npm run score -- results/2026-09-28T18-08-58Z`
 
@@ -25,10 +25,10 @@ Turnaround is the window in which each job finished, measured from sending MeetS
 
 ## Notes
 
-- **Mia Transcribe**: returned exactly the same transcript as JigsawStack: the same engine, not an independent result
+- **Mia Transcribe**: returned exactly the same transcript as JigsawStack, so almost certainly the same engine: count them as one result, not two that agree
 - **JigsawStack**: an earlier attempt failed (Retranscription failed before provider submission) and was replaced
 - **JigsawStack**: submitted on its own after the rest of this run (2026-09-28T18:08:58.993Z), not alongside the other providers
-- **JigsawStack**: returned exactly the same transcript as Mia Transcribe: the same engine, not an independent result
+- **JigsawStack**: returned exactly the same transcript as Mia Transcribe, so almost certainly the same engine: count them as one result, not two that agree
 
 ## Errors by provider (first successful round)
 

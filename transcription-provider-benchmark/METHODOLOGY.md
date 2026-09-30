@@ -166,4 +166,6 @@ pip install -r scripts/requirements.txt
 python scripts/score_jiwer.py results/<run>
 ```
 
+To check the reference is the one that was scored, compare `sha256sum results/<run>/reference.txt` with `reference.sha256` in `run.json`. Reference hashes are taken over LF line endings, and `.gitattributes` checks results out with LF on every OS, so they match on Windows, macOS and Linux. (Test 1's hash was first recorded over a Windows CRLF copy; `run.json` keeps that value in `sha256_note`.)
+
 To re-run the measurement end to end on your own account, follow the README. Your WER should land close to the published figure. It will not match exactly, because providers update their models and every live recording differs slightly. Turnaround depends on load and time of day.

@@ -15,7 +15,7 @@ const http = require("http");
 const path = require("path");
 const { WebSocketServer } = require("ws");
 const api = require("./api");
-const { decodeToPcm, sha256File } = require("./audio");
+const { decodeToPcm, sha256File, textSha256 } = require("./audio");
 const { startTunnel } = require("./tunnel");
 const { PROVIDERS } = require("./providers");
 
@@ -183,7 +183,7 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
         ...(synthetic ? { synthetic_speech: synthetic } : {}),
       },
       reference: referencePath
-        ? { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) }
+        ? { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: textSha256(referencePath), sha256_line_endings: "lf" }
         : null,
     };
     fs.mkdirSync("recordings", { recursive: true });
@@ -251,7 +251,7 @@ async function recordListenerOnly({ meetingLink, botName, referencePath, maxMinu
       live_provider: "meeting_captions",
       clip: null,
       reference: referencePath
-        ? { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) }
+        ? { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: textSha256(referencePath), sha256_line_endings: "lf" }
         : null,
     };
     fs.mkdirSync("recordings", { recursive: true });

@@ -15,7 +15,7 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [
-        "returned exactly the same transcript as JigsawStack: the same engine, not an independent result"
+        "returned exactly the same transcript as JigsawStack, so almost certainly the same engine: count them as one result, not two that agree"
       ],
       "wer": 0.02142857142857143,
       "wer_per_round": [
@@ -106,7 +106,7 @@
       "notes": [
         "an earlier attempt failed (Retranscription failed before provider submission) and was replaced",
         "submitted on its own after the rest of this run (2026-09-28T18:08:58.993Z), not alongside the other providers",
-        "returned exactly the same transcript as Mia Transcribe: the same engine, not an independent result"
+        "returned exactly the same transcript as Mia Transcribe, so almost certainly the same engine: count them as one result, not two that agree"
       ],
       "wer": 0.02142857142857143,
       "wer_per_round": [

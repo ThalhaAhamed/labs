@@ -56,4 +56,14 @@ function sha256File(path) {
   return crypto.createHash("sha256").update(fs.readFileSync(path)).digest("hex");
 }
 
-module.exports = { decodeToPcm, pcmToWav, sha256File, ffmpegPath };
+/**
+ * SHA-256 of a text file with its line endings made LF first, so the same
+ * transcript hashes the same on a Windows checkout (CRLF) and a macOS or
+ * Linux one (LF). Used for reference transcripts; audio uses sha256File.
+ */
+function textSha256(pathOrText, { isText = false } = {}) {
+  const text = isText ? pathOrText : fs.readFileSync(pathOrText, "utf8");
+  return crypto.createHash("sha256").update(text.replace(/\r\n?/g, "\n")).digest("hex");
+}
+
+module.exports = { decodeToPcm, pcmToWav, sha256File, textSha256, ffmpegPath };

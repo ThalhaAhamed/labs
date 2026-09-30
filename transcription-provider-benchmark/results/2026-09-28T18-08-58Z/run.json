@@ -31,7 +31,9 @@
   "reference": {
     "file": "reference.txt",
     "source": "sample/reference.txt",
-    "sha256": "a50b86819b71201d05c100a057afce754349b47dad940b901b3829aa829a7da5"
+    "sha256": "aed990bbd0465d75d9dd06f8a7d2b0161ac26a8918d228463bb686e860dc1cf2",
+    "sha256_line_endings": "lf",
+    "sha256_note": "Corrected on 2026-09-30: first recorded as a50b86819b71201d05c100a057afce754349b47dad940b901b3829aa829a7da5 over a Windows (CRLF) checkout of the same text, which a macOS or Linux clone could not reproduce. Now over LF line endings."
   },
   "providers": {
     "meetstream": {

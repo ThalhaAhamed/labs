@@ -3,13 +3,13 @@
  * calls, so anyone handed a published results/<run>/ folder can re-derive
  * every number in its table from the raw transcripts inside it.
  */
-const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { normalize, wer, clipWindow } = require("./wer");
 const { transcriptText } = require("./transcript");
 const { PRICES_AS_OF, audioSeconds, costOf } = require("./pricing");
 const { displayName } = require("./providers");
+const { textSha256 } = require("./audio");
 
 const NORMALIZER = "src/wer.js normalize() (see METHODOLOGY.md)";
 
@@ -312,7 +312,8 @@ function addReference(runDir, referencePath) {
   run.reference = {
     file: "reference.txt",
     source: path.basename(referencePath),
-    sha256: crypto.createHash("sha256").update(text).digest("hex"),
+    sha256: textSha256(text, { isText: true }),
+    sha256_line_endings: "lf",
     added_at: new Date().toISOString(),
   };
   fs.writeFileSync(runPath, JSON.stringify(run, null, 2) + "\n");
