@@ -2,11 +2,12 @@
   "run_id": "2026-09-28T18-08-58Z",
   "bot_id": "88ba4098-3ab4-4c0c-b56c-3e5416f0f782",
   "reference_words": 420,
+  "wer_tie_band": 0.016049922118191104,
   "billed_audio_seconds": 257.1947,
   "prices_as_of": "2026-09-28",
   "clip_seconds": 191.435,
   "poll_seconds": 5,
-  "normalizer": "src/wer.js normalize() (see METHODOLOGY.md)",
+  "normalizer": "src/wer.js normalize() v2, 2026-09-30: + British/American spelling, contractions, compound spacing (see METHODOLOGY.md)",
   "providers": [
     {
       "provider": "meetstream",
@@ -17,17 +18,17 @@
       "notes": [
         "returned exactly the same transcript as JigsawStack, so almost certainly the same engine: count them as one result, not two that agree"
       ],
-      "wer": 0.02142857142857143,
+      "wer": 0.014285714285714285,
       "wer_per_round": [
-        0.0214
+        0.0143
       ],
-      "substitutions": 7,
-      "deletions": 2,
+      "substitutions": 5,
+      "deletions": 1,
       "insertions": 0,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.02142857142857143,
+      "wer_untrimmed": 0.014285714285714285,
       "turnaround_median_s": 8.64,
       "turnaround_lower_s": 2.55,
       "turnaround_min_s": 8.64,
@@ -41,16 +42,6 @@
           "op": "S",
           "ref": "linnell's",
           "hyp": "l'anel's"
-        },
-        {
-          "op": "D",
-          "ref": "up",
-          "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "guards",
-          "hyp": "upguards"
         },
         {
           "op": "D",
@@ -71,11 +62,6 @@
           "op": "S",
           "ref": "the",
           "hyp": "a"
-        },
-        {
-          "op": "S",
-          "ref": "recognising",
-          "hyp": "recognizing"
         },
         {
           "op": "S",
@@ -110,17 +96,17 @@
         "submitted on its own after the rest of this run (2026-09-28T18:08:58.993Z), not alongside the other providers",
         "returned exactly the same transcript as Mia Transcribe, so almost certainly the same engine: count them as one result, not two that agree"
       ],
-      "wer": 0.02142857142857143,
+      "wer": 0.014285714285714285,
       "wer_per_round": [
-        0.0214
+        0.0143
       ],
-      "substitutions": 7,
-      "deletions": 2,
+      "substitutions": 5,
+      "deletions": 1,
       "insertions": 0,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.02142857142857143,
+      "wer_untrimmed": 0.014285714285714285,
       "turnaround_median_s": 7.46,
       "turnaround_lower_s": 0.99,
       "turnaround_min_s": 7.46,
@@ -134,16 +120,6 @@
           "op": "S",
           "ref": "linnell's",
           "hyp": "l'anel's"
-        },
-        {
-          "op": "D",
-          "ref": "up",
-          "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "guards",
-          "hyp": "upguards"
         },
         {
           "op": "D",
@@ -164,11 +140,6 @@
           "op": "S",
           "ref": "the",
           "hyp": "a"
-        },
-        {
-          "op": "S",
-          "ref": "recognising",
-          "hyp": "recognizing"
         },
         {
           "op": "S",
@@ -199,17 +170,17 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [],
-      "wer": 0.02857142857142857,
+      "wer": 0.02619047619047619,
       "wer_per_round": [
-        0.0286
+        0.0262
       ],
-      "substitutions": 9,
+      "substitutions": 8,
       "deletions": 2,
       "insertions": 1,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.02857142857142857,
+      "wer_untrimmed": 0.02619047619047619,
       "turnaround_median_s": 14.25,
       "turnaround_lower_s": 8.63,
       "turnaround_min_s": 14.25,
@@ -261,11 +232,6 @@
         },
         {
           "op": "S",
-          "ref": "recognising",
-          "hyp": "recognizing"
-        },
-        {
-          "op": "S",
           "ref": "were",
           "hyp": "are"
         },
@@ -302,17 +268,17 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [],
-      "wer": 0.0380952380952381,
+      "wer": 0.030952380952380953,
       "wer_per_round": [
-        0.0381
+        0.031
       ],
-      "substitutions": 12,
-      "deletions": 4,
+      "substitutions": 10,
+      "deletions": 3,
       "insertions": 0,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.0380952380952381,
+      "wer_untrimmed": 0.030952380952380953,
       "turnaround_median_s": 8.63,
       "turnaround_lower_s": 2.55,
       "turnaround_min_s": 8.63,
@@ -384,21 +350,6 @@
         },
         {
           "op": "S",
-          "ref": "recognising",
-          "hyp": "recognizing"
-        },
-        {
-          "op": "D",
-          "ref": "m",
-          "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "a",
-          "hyp": "ma"
-        },
-        {
-          "op": "S",
           "ref": "a",
           "hyp": "the"
         }
@@ -423,17 +374,17 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [],
-      "wer": 0.05,
+      "wer": 0.0380952380952381,
       "wer_per_round": [
-        0.05
+        0.0381
       ],
-      "substitutions": 16,
-      "deletions": 5,
+      "substitutions": 13,
+      "deletions": 3,
       "insertions": 0,
       "reference_words": 420,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.05,
+      "wer_untrimmed": 0.0380952380952381,
       "turnaround_median_s": 20.05,
       "turnaround_lower_s": 14.25,
       "turnaround_min_s": 20.05,
@@ -457,16 +408,6 @@
           "op": "S",
           "ref": "linnell's",
           "hyp": "linell's"
-        },
-        {
-          "op": "D",
-          "ref": "up",
-          "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "guards",
-          "hyp": "upguards"
         },
         {
           "op": "D",
@@ -522,21 +463,6 @@
           "op": "S",
           "ref": "angelo",
           "hyp": "michelangelo"
-        },
-        {
-          "op": "D",
-          "ref": "mantel",
-          "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "board",
-          "hyp": "mantelboard"
-        },
-        {
-          "op": "S",
-          "ref": "recognising",
-          "hyp": "recognizing"
         },
         {
           "op": "S",

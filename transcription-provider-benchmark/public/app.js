@@ -612,8 +612,15 @@ async function showRun(id) {
     // Overlaps the fastest window: can't be told apart from it.
     tiedWith: (p, best) => (p.turnaround_lower_s ?? p.turnaround_median_s - poll) < best,
   };
+  // Accuracy gaps inside the sampling-noise band (from the reference length)
+  // are ties, not wins.
+  const band = results.wer_tie_band;
+  const accuracy = {
+    key: "wer", label: "WER", sub: band != null ? `lower is better, ±${(band * 100).toFixed(1)} pts noise` : "lower is better", fmt: pct,
+    ...(band != null ? { tiedWith: (p, best) => p.wer - best <= band + 1e-9, tieLabel: "within sampling noise" } : {}),
+  };
   const metrics = [
-    ...(scored ? [{ key: "wer", label: "WER", sub: "lower is better", fmt: pct }] : [{ key: "words", label: "Words", sub: "not a quality score", fmt: (v) => String(v), neutral: true }]),
+    ...(scored ? [accuracy] : [{ key: "words", label: "Words", sub: "not a quality score", fmt: (v) => String(v), neutral: true }]),
     turnaround,
     { key: "cost_usd", label: "Cost", sub: "this recording", fmt: usd },
   ];
@@ -632,12 +639,12 @@ async function showRun(id) {
   const who = (m) => {
     if (m.best == null) return "not measured";
     const names = ran.filter((p) => isBestFor(m, p)).map((p) => nameOf(p.provider));
-    return names.length > 1 && m.tiedWith ? `${names.join(", ")} (can't be told apart)` : names.join(", ");
+    return names.length > 1 && m.tiedWith ? `${names.join(", ")} (${m.tieLabel ?? "can't be told apart"})` : names.join(", ");
   };
   $("#summaryCards").replaceChildren(...metrics.filter((m) => !m.neutral).map((m) =>
     el("div", { class: "stat" },
       el("div", { class: "label" }, m.key === "wer" ? "Most accurate" : m.key === "cost_usd" ? "Cheapest" : "Fastest"),
-      el("div", { class: "value" }, m.best == null ? "–" : `${m.tiedWith ? "≤ " : ""}${m.fmt(m.best)}`),
+      el("div", { class: "value" }, m.best == null ? "–" : `${m.key === "turnaround_median_s" ? "≤ " : ""}${m.fmt(m.best)}`),
       el("div", { class: "who" }, who(m)))));
 
   // Rank by the headline metric (accuracy, or speed when there's no reference).

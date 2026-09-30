@@ -6,11 +6,11 @@ Latest run, [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.
 
 | Provider | WER | Sub / Del / Ins | Turnaround (finished within) | Cost | Per hour |
 |---|---:|---:|---:|---:|---:|
-| Mia Transcribe ◆ | 2.1% | 7 / 2 / 0 | 2.5–8.6 s | $0.0071 | $0.10 |
-| JigsawStack ◆ | 2.1% | 7 / 2 / 0 | 1.0–7.5 s ‡ | $0.0019 | ~$0.03* |
-| AssemblyAI | 2.9% | 9 / 2 / 1 | 8.6–14.3 s | $0.012 | $0.17 |
-| Deepgram | 3.8% | 12 / 4 / 0 | 2.5–8.6 s | $0.018 | $0.26 |
-| Sarvam | 5.0% | 16 / 5 / 0 | 14.3–20.1 s | $0.033 | $0.47 |
+| Mia Transcribe ◆ | 1.4% | 5 / 1 / 0 | 2.5–8.6 s | $0.0071 | $0.10 |
+| JigsawStack ◆ | 1.4% | 5 / 1 / 0 | 1.0–7.5 s ‡ | $0.0019 | ~$0.03* |
+| AssemblyAI | 2.6% | 8 / 2 / 1 | 8.6–14.3 s | $0.012 | $0.17 |
+| Deepgram | 3.1% | 10 / 3 / 0 | 2.5–8.6 s | $0.018 | $0.26 |
+| Sarvam | 3.8% | 13 / 3 / 0 | 14.3–20.1 s | $0.033 | $0.47 |
 
 ◆ **One engine, two names.** Mia Transcribe runs on JigsawStack. In this run the two returned exactly the same transcript, in JigsawStack's response format. Count them as one result, not two that agree.
 ‡ Re-run on its own after its first attempt failed (see below), so its turnaround isn't comparable with the others'.
@@ -19,11 +19,12 @@ Cost is transcription only, for the 4.29 min of billed audio, at each provider's
 
 How to read this:
 
-- **The sample is small.** One word is 0.24 points of WER, so treat gaps under about 2 points as ties. On this clip, a spelling difference (`recognising` / `recognizing`) and a compound word (`michael angelo` / `michelangelo`) alone move some providers by up to 0.7 points.
+- **The sample is small.** One word is 0.24 points of WER. On 420 words, gaps under 1.6 points are within sampling noise (95%), so Mia Transcribe/JigsawStack and AssemblyAI are tied, and Deepgram is only just outside that. The report and the app compute this band for every run.
+- **Scored on words, not formatting.** British/American spelling, unambiguous contractions and compound words written with or without a space (`upguards` / `up guards`) are not counted as errors. These rules were added on 2026-09-30 and Test 1 was re-scored from the same raw transcripts: WER went from 2.1 / 2.9 / 3.8 / 5.0% to 1.4 / 2.6 / 3.1 / 3.8% (Mia Transcribe and JigsawStack / AssemblyAI / Deepgram / Sarvam). Every error removed was a formatting difference, and the ranking didn't change. `michael angelo` / `michelangelo` is still counted: it is a different spelling, not a space.
 - **Turnaround is a window, not a number.** It is MeetStream's end-to-end time from the re-transcribe request (the request itself, queueing, the provider's processing), not the provider's own API latency. This run polled every 5 s, so each job is only known to have finished between two polls. Mia Transcribe and Deepgram both finished within 2.5–8.6 s and can't be told apart; AssemblyAI finished within 8.6–14.3 s and Sarvam within 14.3–20.1 s. New runs poll every 1 s.
 - **One run.** One recording of one clip gives one sample per provider, with no measure of spread. Treat the numbers as indicative.
 - **JigsawStack was re-run.** Its first attempt failed inside MeetStream before reaching JigsawStack ("Retranscription failed before provider submission"). It was re-run on the same recording about 90 seconds later, on its own. `results.md` records both attempts.
-- **The independent scorer agrees.** `scripts/score_jiwer.py` gives the same ranking, with every provider within 0.3 points.
+- **The independent scorer agrees on the ranking.** `scripts/score_jiwer.py` (jiwer with Whisper's normaliser, which MeetStream didn't write) ranks the providers the same way. Its figures are up to 1.1 points higher, because Whisper's normaliser counts compound spacing (`upguards`) as errors.
 - **Every provider's raw transcript is in the results folder.** To re-score it yourself, see [Reproducing a result](METHODOLOGY.md#reproducing-a-result).
 
 **Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.

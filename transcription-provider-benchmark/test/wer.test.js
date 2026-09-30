@@ -30,6 +30,26 @@ test("wer matches hand-worked answers", () => {
   assert.equal(W("Hello, WORLD! It's me.", "hello world it's me"), 0);
 });
 
+test("spelling conventions, contractions and compound spacing are formatting, not errors", () => {
+  const W = (r, h) => wer(normalize(r), normalize(h));
+  assert.equal(W("colour recognising behaviour", "color recognizing behavior").wer, 0);  // British / American
+  assert.equal(W("do not go we are here", "don't go we're here").wer, 0);               // contractions
+  assert.equal(W("I will not", "I won't").wer, 0);
+  assert.equal(W("up guards and at em", "upguards and at em").wer, 0);                // compound written as one word
+  assert.equal(W("the mantelboard", "the mantel board").wer, 0);                       // ... or as two
+  // Still errors: a different word, a different spelling, and an ambiguous 's.
+  assert.equal(W("michael angelo", "michelangelo").wer, 1);
+  assert.equal(W("up guards", "upgard's").substitutions + W("up guards", "upgard's").deletions, 2);
+  assert.equal(W("it is", "it's").wer > 0, true);
+});
+
+test("a joined compound counts once as correct and keeps the reference word count", () => {
+  const r = wer(normalize("up guards and at em"), normalize("upguards and at em"));
+  assert.equal(r.referenceWords, 5);
+  assert.equal(r.hits, 5);
+  assert.deepEqual(r.alignment[0], { op: "=", ref: "up guards", hyp: "upguards", joined: true });
+});
+
 test("Indic scripts keep their vowel signs, so words stay whole and different words stay different", () => {
   assert.equal(normalize("வணக்கம் எல்லோரும்!"), "வணக்கம் எல்லோரும்");
   assert.equal(normalize("नमस्ते, दोस्तों।"), "नमस्ते दोस्तों");

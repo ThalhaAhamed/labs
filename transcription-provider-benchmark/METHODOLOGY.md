@@ -78,6 +78,14 @@ Before alignment, the same normalisation is applied to both the reference and ea
    - 4-digit numbers from 1100 to 2099 read as years (`1905` → nineteen oh five, `2005` → two thousand five), `1990s` → nineteen nineties
    - numbers over 12 digits are read digit by digit
 6. The fillers um, uh, hmm, mm, mhm, mmm and erm are dropped, since a reader never says them.
+7. British spellings become American (`recognising` → recognizing, `colour` → color), using Whisper's list of 1,739 pairs ([src/data/NOTICE.md](src/data/NOTICE.md)).
+8. Contractions with only one reading are expanded: `n't` → not (`won't` → will not, `can't` and `cannot` → can not), `'re` → are, `'ve` → have, `'ll` → will, `'m` → am. `'s` (is, has or possessive) and `'d` (had or would) are ambiguous and left as written.
+
+After alignment, one more rule: **compound words match however they're spaced.** A run of errors whose reference and hypothesis words join to the same letters (`up guards` / `upguards`, `mantel board` / `mantelboard`) is scored as correct, and still counts as the reference's number of words. A different spelling (`michael angelo` / `michelangelo`) doesn't join to the same letters and stays an error.
+
+Rules 7, 8 and the compound rule were added on 2026-09-30, after an audit found that formatting differences were charged unevenly: they moved some providers by up to 1.2 points on Test 1, more than the gaps between them. Test 1 was re-scored from the same raw transcripts; every error removed was a formatting difference, and the ranking didn't change. `results.json` names the normaliser version that scored a run.
+
+**Ties.** On a small reference, a gap of a word or two is noise. The report computes a 95% band for the difference between two WERs near the best one, from the number of reference words (`wer_tie_band` in `results.json`; 1.6 points on the 420-word sample), and the app calls every provider inside it tied. It treats words as independent; real errors cluster, so the true band is if anything wider.
 
 **Only the clip is scored.** The listener records from the moment it joins, so anything said in the room before the clip starts (for example while the speaker bot waits to be admitted) or after it ends is in every transcript. It would otherwise count as insertion errors, and it would hit hardest the providers most willing to transcribe background speech. Before scoring, each transcript is cut to the clip ([src/wer.js](src/wer.js) `clipWindow`):
 
@@ -94,7 +102,7 @@ Speaker labels are ignored: this measures which words were heard, not who said t
 
 - On identical normalised text, `src/wer.js` and jiwer gave the same WER to the last decimal place for every provider.
 - The S/D/I *split* can differ when two alignments are equally short, for example one substitution vs. one deletion plus one insertion. Totals never differ.
-- With Whisper's normaliser instead of ours, WERs moved by up to 0.2 points and the ranking did not change. Expect small differences like this, and publish both tables.
+- With Whisper's normaliser instead of ours, the ranking doesn't change. On Test 1 its WERs are up to 1.1 points higher, because it counts compound spacing (`upguards` for `up guards`) as errors and ours doesn't. Publish both tables.
 
 ## Turnaround time
 

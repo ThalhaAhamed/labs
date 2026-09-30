@@ -10,15 +10,15 @@
 
 | Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time (of billed audio) | Cost | Per hour |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Mia Transcribe | 2.1% | 7 | 2 | 0 | 0 words (untrimmed WER 2.1%) | 2.5–8.6s | 8.6s–8.6s | 0.03× | $0.0071 | $0.10 |
-| JigsawStack | 2.1% | 7 | 2 | 0 | 0 words (untrimmed WER 2.1%) | 1.0–7.5s ‡ | 7.5s–7.5s | 0.03× | $0.0019 | $0.03 |
-| AssemblyAI | 2.9% | 9 | 2 | 1 | 0 words (untrimmed WER 2.9%) | 8.6–14.3s | 14.3s–14.3s | 0.06× | $0.012 | $0.17 |
-| Deepgram | 3.8% | 12 | 4 | 0 | 0 words (untrimmed WER 3.8%) | 2.5–8.6s | 8.6s–8.6s | 0.03× | $0.018 | $0.26 |
-| Sarvam | 5.0% | 16 | 5 | 0 | 0 words (untrimmed WER 5.0%) | 14.3–20.1s | 20.1s–20.1s | 0.08× | $0.033 | $0.47 |
+| Mia Transcribe | 1.4% | 5 | 1 | 0 | 0 words (untrimmed WER 1.4%) | 2.5–8.6s | 8.6s–8.6s | 0.03× | $0.0071 | $0.10 |
+| JigsawStack | 1.4% | 5 | 1 | 0 | 0 words (untrimmed WER 1.4%) | 1.0–7.5s ‡ | 7.5s–7.5s | 0.03× | $0.0019 | $0.03 |
+| AssemblyAI | 2.6% | 8 | 2 | 1 | 0 words (untrimmed WER 2.6%) | 8.6–14.3s | 14.3s–14.3s | 0.06× | $0.012 | $0.17 |
+| Deepgram | 3.1% | 10 | 3 | 0 | 0 words (untrimmed WER 3.1%) | 2.5–8.6s | 8.6s–8.6s | 0.03× | $0.018 | $0.26 |
+| Sarvam | 3.8% | 13 | 3 | 0 | 0 words (untrimmed WER 3.8%) | 14.3–20.1s | 20.1s–20.1s | 0.08× | $0.033 | $0.47 |
 
 WER counts only words inside the clip: anything a provider transcribed before the clip started or after it ended (talk in the room while the bots joined) is cut first and shown under Outside clip. See METHODOLOGY.md for the rule.
 
-WER is pooled over all successful rounds.
+WER is pooled over all successful rounds. On 420 reference words, WER gaps under 1.6 points are within sampling noise (95%, treating words as independent; real errors cluster, so the true band is wider): treat them as ties.
 
 Turnaround is the window in which each job finished, measured from sending MeetStream's transcribe request: after the last poll that still saw it processing, and by the first poll that saw it done (polled every 5s). It is MeetStream's end-to-end turnaround (the request itself, queueing, fetching the recording, the provider's processing), not the provider's own API latency. Providers whose windows overlap can't be ranked on speed.
 
@@ -37,13 +37,13 @@ Turnaround is the window in which each job finished, measured from sending MeetS
 
 `S ref→hyp` substitution, `D ref` deletion (missed word), `I hyp` insertion. Normalised text for each provider is in `transcripts/*.normalized.txt`.
 
-**Mia Transcribe** (9 errors): `S linnell's→l'anel's`, `D up`, `S guards→upguards`, `D at`, `S em→adam`, `S birket→burkett`, `S the→a`, `S recognising→recognizing`, `S were→are`
+**Mia Transcribe** (6 errors): `S linnell's→l'anel's`, `D at`, `S em→adam`, `S birket→burkett`, `S the→a`, `S were→are`
 
-**JigsawStack** (9 errors): `S linnell's→l'anel's`, `D up`, `S guards→upguards`, `D at`, `S em→adam`, `S birket→burkett`, `S the→a`, `S recognising→recognizing`, `S were→are`
+**JigsawStack** (6 errors): `S linnell's→l'anel's`, `D at`, `S em→adam`, `S birket→burkett`, `S the→a`, `S were→are`
 
-**AssemblyAI** (12 errors): `I rather`, `D at`, `S em→atom`, `S birket→burkett`, `S the→a`, `D michael`, `S angelo→michelangelo`, `S mantel→mantle`, `S recognising→recognizing`, `S were→are`, `S while→all`, `S wished→wish`
+**AssemblyAI** (11 errors): `I rather`, `D at`, `S em→atom`, `S birket→burkett`, `S the→a`, `D michael`, `S angelo→michelangelo`, `S mantel→mantle`, `S were→are`, `S while→all`, `S wished→wish`
 
-**Deepgram** (16 errors): `D up`, `S guards→upgard's`, `D at`, `S em→adam`, `S idylls→idols`, `S birket→burkitt`, `S on→in`, `S fact→effect`, `S the→a`, `D michael`, `S angelo→michelangelo`, `S mantel→mantle`, `S recognising→recognizing`, `D m`, `S a→ma`, `S a→the`
+**Deepgram** (13 errors): `D up`, `S guards→upgard's`, `D at`, `S em→adam`, `S idylls→idols`, `S birket→burkitt`, `S on→in`, `S fact→effect`, `S the→a`, `D michael`, `S angelo→michelangelo`, `S mantel→mantle`, `S a→the`
 
-**Sarvam** (21 errors): `S apostle→gospel`, `S leighton's→layton's`, `S linnell's→linell's`, `D up`, `S guards→upguards`, `D at`, `S em→adam`, `S jingo→gingo`, `S birket→burkett`, `S on→in`, `S in→an`, `D finish`, `S in→finishing`, `S the→a`, `D michael`, `S angelo→michelangelo`, `D mantel`, `S board→mantelboard`, `S recognising→recognizing`, `S felicitous→felicitor's`, `S phases→faces`
+**Sarvam** (16 errors): `S apostle→gospel`, `S leighton's→layton's`, `S linnell's→linell's`, `D at`, `S em→adam`, `S jingo→gingo`, `S birket→burkett`, `S on→in`, `S in→an`, `D finish`, `S in→finishing`, `S the→a`, `D michael`, `S angelo→michelangelo`, `S felicitous→felicitor's`, `S phases→faces`
 

@@ -11,7 +11,20 @@ const { PRICES_AS_OF, audioSeconds, costOf } = require("./pricing");
 const { displayName } = require("./providers");
 const { textSha256 } = require("./audio");
 
-const NORMALIZER = "src/wer.js normalize() (see METHODOLOGY.md)";
+// Bumped whenever a normalisation rule changes, so a run says which rules scored it.
+const NORMALIZER = "src/wer.js normalize() v2, 2026-09-30: + British/American spelling, contractions, compound spacing (see METHODOLOGY.md)";
+
+/**
+ * How far apart two WERs must be before the gap means anything on this many
+ * reference words: a 95% band for the difference of two error rates near the
+ * best one, treating words as independent. Real errors cluster, so the true
+ * band is if anything wider; gaps inside it are ties.
+ */
+function werTieBand(bestWer, words) {
+  if (!words || !Number.isFinite(bestWer)) return null;
+  const p = Math.min(0.5, Math.max(bestWer, 1 / words));
+  return 1.96 * Math.sqrt((2 * p * (1 - p)) / words);
+}
 
 /**
  * A path from run.json, resolved inside the run folder. A results folder may
@@ -263,6 +276,7 @@ function score(runDir) {
     run_id: run.run_id,
     bot_id: run.bot.id,
     reference_words: reference ? reference.split(" ").length : null,
+    wer_tie_band: reference ? werTieBand(Math.min(...rows.filter((r) => r.ran && r.wer != null).map((r) => r.wer)), reference.split(" ").length) : null,
     billed_audio_seconds: billedSeconds,
     prices_as_of: PRICES_AS_OF,
     clip_seconds: clipSeconds,
@@ -330,7 +344,9 @@ function renderMarkdown(run, results) {
   if (results.providers.some((r) => r.turnaround_median_s == null && r.post_call_turnaround_s != null)) {
     L.push("† Ran live on the recording bot because MeetStream's re-transcribe endpoint would not run it, so it is timed from the bots leaving the call. That includes MeetStream's post-call media processing, which the other turnarounds (timed from a re-transcribe request on an already-processed recording) do not.", "");
   }
-  L.push("WER is pooled over all successful rounds.", "", ...timingNotes(results));
+  L.push("WER is pooled over all successful rounds." + (results.wer_tie_band != null
+    ? ` On ${results.reference_words} reference words, WER gaps under ${(results.wer_tie_band * 100).toFixed(1)} points are within sampling noise (95%, treating words as independent; real errors cluster, so the true band is wider): treat them as ties.`
+    : ""), "", ...timingNotes(results));
 
   }
 
