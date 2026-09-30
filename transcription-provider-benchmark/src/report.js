@@ -13,6 +13,24 @@ const { textSha256 } = require("./audio");
 
 const NORMALIZER = "src/wer.js normalize() (see METHODOLOGY.md)";
 
+/**
+ * A path from run.json, resolved inside the run folder. A results folder may
+ * come from someone else (re-scoring a published run is the point), so a
+ * crafted run.json must not make scoring read or write files outside it,
+ * directly ("../x") or through a symlink.
+ */
+function inRun(runDir, rel) {
+  const root = fs.realpathSync(runDir);
+  const inside = (p) => p === root || p.startsWith(root + path.sep);
+  const full = path.resolve(root, String(rel ?? ""));
+  if (!inside(full)) throw new Error(`${rel} is outside the run folder`);
+  // Follow symlinks in the file and its folders: the real target must be inside too.
+  let probe = full;
+  while (!fs.existsSync(probe)) probe = path.dirname(probe);
+  if (!inside(fs.realpathSync(probe))) throw new Error(`${rel} leads outside the run folder (symlink)`);
+  return full;
+}
+
 /** The model a provider reports in its raw response, or null if it doesn't say. */
 function modelReported(provider, raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -60,7 +78,7 @@ function score(runDir) {
   const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
   // Without a reference (a recorder-only run of unscripted talk) there is no
   // accuracy to score; the table then reports turnaround and word counts.
-  const reference = run.reference ? normalize(fs.readFileSync(path.join(runDir, run.reference.file), "utf8")) : null;
+  const reference = run.reference ? normalize(fs.readFileSync(inRun(runDir, run.reference.file), "utf8")) : null;
   if (reference) fs.writeFileSync(path.join(runDir, "reference.normalized.txt"), reference + "\n");
   const clipSeconds = run.recording?.clip?.seconds ?? null;
 
@@ -86,7 +104,7 @@ function score(runDir) {
   for (const [provider, jobs] of byProvider) {
     const scored = [];
     for (const job of jobs.filter((j) => j.status === "Success" && j.transcript_file)) {
-      const raw = JSON.parse(fs.readFileSync(path.join(runDir, job.transcript_file), "utf8"));
+      const raw = JSON.parse(fs.readFileSync(inRun(runDir, job.transcript_file), "utf8"));
       let text;
       try {
         text = transcriptText(raw);
@@ -99,7 +117,7 @@ function score(runDir) {
       }
       const hypothesis = normalize(text);
       if (!hypotheses.has(provider)) hypotheses.set(provider, hypothesis);
-      fs.writeFileSync(path.join(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
+      fs.writeFileSync(inRun(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
       // Score only what falls inside the clip; talk before or after it in
       // the room is not the provider's error. The untrimmed figure is kept.
       if (!reference) {
@@ -196,7 +214,7 @@ function score(runDir) {
   // Cost: from each provider's raw response (what it actually billed on).
   const rawOf = (job) => {
     if (!job?.raw_file) return null;
-    try { return JSON.parse(fs.readFileSync(path.join(runDir, job.raw_file), "utf8")); } catch { return null; }
+    try { return JSON.parse(fs.readFileSync(inRun(runDir, job.raw_file), "utf8")); } catch { return null; }
   };
   const rawByProvider = new Map();
   for (const [provider, jobs] of byProvider) {
@@ -345,4 +363,4 @@ function addReference(runDir, referencePath) {
   return score(runDir);
 }
 
-module.exports = { score, addReference };
+module.exports = { score, addReference, inRun };

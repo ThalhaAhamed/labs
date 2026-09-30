@@ -28,6 +28,7 @@ const express = require("express");
 const { PROVIDERS } = require("./src/providers");
 const { RATES, PRICES_AS_OF } = require("./src/pricing");
 const { ttsEngine } = require("./src/tts");
+const { inRun } = require("./src/report");
 const TTS = ttsEngine();
 
 const PORT = parseInt(process.env.UI_PORT || "4173", 10);
@@ -61,7 +62,9 @@ function recordingInfo(botId) {
     const past = runJsons().find(({ run }) => run.bot?.id === botId && run.recording);
     if (past) {
       rec = rec ?? past.run.recording;
-      refFile = past.run.reference ? path.join(past.dir, past.run.reference.file) : refFile;
+      try {
+        refFile = past.run.reference ? inRun(past.dir, past.run.reference.file) : refFile;
+      } catch { /* a run.json pointing outside its folder: ignore its reference */ }
     }
   }
   if (!rec) return null;
@@ -248,7 +251,8 @@ app.get("/api/runs/:id", (req, res) => {
   // Each provider's transcript as the scorer saw it (normalised), for reading in the page.
   const transcripts = {};
   for (const job of run.jobs.filter((j) => j.status === "Success" && j.transcript_file && !j.superseded)) {
-    const f = path.join(dir, job.transcript_file.replace(/\.json$/, ".normalized.txt"));
+    let f;
+    try { f = inRun(dir, job.transcript_file.replace(/\.json$/, ".normalized.txt")); } catch { continue; }
     if (exists(f) && !transcripts[job.provider]) transcripts[job.provider] = fs.readFileSync(f, "utf8").trim();
   }
   const reference = exists(path.join(dir, "reference.normalized.txt"))
