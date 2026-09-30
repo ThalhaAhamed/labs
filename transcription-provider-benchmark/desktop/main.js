@@ -102,8 +102,17 @@ async function launch() {
   seed(dataDir);
   process.env.BENCH_DATA_DIR = dataDir; // read by server.js when it loads
 
-  const { start } = require(path.join(APP_ROOT, "server.js"));
+  const { start, shutdown } = require(path.join(APP_ROOT, "server.js"));
   const { port } = await start({ port: 0, store: keyStore(dataDir) });
+  // Closing mid-run: take the run's bots out of the meeting first, or they
+  // stay in the call (and keep billing) until the recorder's time limit.
+  let closing = false;
+  app.on("before-quit", (event) => {
+    if (closing) return;
+    event.preventDefault();
+    closing = true;
+    shutdown().finally(() => app.quit());
+  });
   const url = `http://127.0.0.1:${port}/`;
   console.log(`Transcriber Benchmark serving ${url} (data: ${dataDir})`);
 

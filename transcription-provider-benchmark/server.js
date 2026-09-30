@@ -116,6 +116,11 @@ const keys = {
 };
 
 const app = express();
+// Only answer requests addressed to this machine by name. Listening on
+// 127.0.0.1 isn't enough on its own: a web page can point its own domain at
+// 127.0.0.1 (DNS rebinding) and then call this API as if it were the page,
+// with your MeetStream key, to send bots into meetings.
+app.use((req, res, next) => (/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(req.headers.host ?? "") ? next() : res.status(403).send("Forbidden")));
 app.use(express.json({ limit: "200mb" })); // uploaded audio arrives base64-encoded
 app.use(express.static(path.join(ROOT, "public")));
 
@@ -183,7 +188,11 @@ app.get("/api/bots", async (_req, res) => {
 app.get("/api/recordings/:botId", (req, res) => {
   if (!BOT_ID.test(req.params.botId)) return res.status(400).json({ error: "Not a bot ID." });
   const { referencePath: _local, ...rec } = recordingInfo(req.params.botId) ?? {};
-  res.json({ known: !!rec.source, speaker: speakerBotIds().has(req.params.botId), ...rec });
+  // Runs of this bot already here: MeetStream runs each provider once per
+  // recording, so a new run would reuse those transcripts without timing.
+  const pastRuns = runJsons().filter(({ run }) => run.bot?.id === req.params.botId)
+    .map(({ dir, run }) => ({ id: path.basename(dir), started_at: run.started_at ?? null }));
+  res.json({ known: !!rec.source, speaker: speakerBotIds().has(req.params.botId), pastRuns, ...rec });
 });
 
 // Builds sample/clip.wav + sample/reference.txt (npm run fetch-sample).
@@ -480,17 +489,31 @@ app.post("/api/jobs/:id/stop", async (req, res) => {
       return res.status(502).json({ error: api.describeError(err) });
     }
   }
-  // Cancel. Remove the run's bots from here first: on Windows kill() ends the
-  // child at once, so its own clean-up would not get to run.
+  await cancel(job, "Stopped from the browser");
+  res.json({ stopped: "run" });
+});
+
+// Cancel a run. Remove its bots from here first: on Windows kill() ends the
+// child at once, so its own clean-up would not get to run.
+async function cancel(job, why) {
   job.stopped = true;
   process.env.MEETSTREAM_API_KEY = keys.MEETSTREAM_API_KEY;
   const api = require("./src/api");
   const bots = Object.values(job.state.bots).filter(Boolean);
   await Promise.all(bots.map((id) => api.removeBot(id).catch(() => {})));
-  if (bots.length) emit(job, "log", `  Stopped from the browser: removed ${bots.length} bot${bots.length === 1 ? "" : "s"} from the call.`);
+  if (bots.length) emit(job, "log", `  ${why}: removed ${bots.length} bot${bots.length === 1 ? "" : "s"} from the call.`);
   job.child?.kill();
-  res.json({ stopped: "run" });
-});
+}
+
+/**
+ * Called when the app is closing: a run in progress would otherwise leave its
+ * bots in the meeting (up to the recorder's time limit) and its CLI running.
+ */
+async function shutdown() {
+  if (!current || current.done) return;
+  // remove_bot answers once the bot has left (~15 s); don't hang the app on it.
+  await Promise.race([cancel(current, "App closed"), new Promise((r) => setTimeout(r, 20_000))]);
+}
 
 /**
  * Starts the server on 127.0.0.1. Port 0 picks a free port (the desktop app
@@ -507,11 +530,13 @@ function start({ port = PORT, store = null } = {}) {
   });
 }
 
-module.exports = { start, DATA };
+module.exports = { start, shutdown, DATA };
 
 if (require.main === module) {
   start().then(({ port }) => {
     console.log(`\n  Transcription benchmark UI → http://localhost:${port}\n`);
     if (!keys.MEETSTREAM_API_KEY) console.log("  No MEETSTREAM_API_KEY in .env: you can paste it into the page.\n");
   });
+  // Ctrl+C: take any bots out of the meeting before exiting.
+  process.once("SIGINT", () => shutdown().finally(() => process.exit(130)));
 }

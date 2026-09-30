@@ -77,6 +77,9 @@ const sameConfig = (a, b) => {
   const canon = (o) => JSON.stringify(Object.keys(o ?? {}).sort().map((k) => [k, o[k]]));
   return canon(a) === canon(b);
 };
+// No setting reported by both sides differs (a missing one is unknown, not different).
+const compatibleConfig = (reported, ours) =>
+  Object.keys(reported ?? {}).every((k) => !(k in ours) || JSON.stringify(reported[k]) === JSON.stringify(ours[k]));
 
 /**
  * For a provider that already ran on this bot (it was benchmarked before, or
@@ -90,12 +93,20 @@ async function reuseEarlierRuns(botId, batch, recording) {
   const existing = await api.listTranscriptions(botId).catch(() => []);
   for (const job of spent) {
     const inner = Object.values(PROVIDERS[job.provider])[0];
-    const prior =
-      existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id && sameConfig(t.config, inner)) ??
-      existing.find((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id);
-    if (!prior) continue;
+    // Only a transcript made with the same model and settings stands in for
+    // this provider: one made with another model (nova-2 for nova-3, another
+    // language) would put that model's accuracy under this provider's name.
+    // MeetStream's listing may leave out defaults or settings altogether, so
+    // only a setting reported differently rules a transcript out.
+    const earlier = existing.filter((t) => t.provider === job.provider && t.status === "Success" && t.transcript_id);
+    const prior = earlier.find((t) => sameConfig(t.config, inner)) ?? earlier.find((t) => compatibleConfig(t.config, inner));
+    if (!prior) {
+      if (earlier.length) job.note = `an earlier transcript exists but was made with different settings (${JSON.stringify(earlier[0].config)}), so it isn't scored as ${job.provider}`;
+      continue;
+    }
     const why = alreadyRun(job) ? "already run on this bot" : "the transcribe endpoint refused it";
-    job.note = `${why} (${job.error.replace(/^HTTP \d+: /, "")}); scored the earlier transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}${sameConfig(prior.config, inner) ? "" : ` whose config was ${JSON.stringify(prior.config)}`}, turnaround not measured`;
+    const settings = sameConfig(prior.config, inner) ? "" : prior.config ? ` (MeetStream reported its settings as ${JSON.stringify(prior.config)})` : " (MeetStream didn't report its settings)";
+    job.note = `${why} (${job.error.replace(/^HTTP \d+: /, "")}); scored the earlier transcript ${prior.transcript_id} from ${prior.created_at ?? "earlier"}${settings}, turnaround not measured`;
     job.status = "Success";
     job.transcript_id = prior.transcript_id;
     job.reused = true;

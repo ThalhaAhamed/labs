@@ -18,6 +18,14 @@ test("normalize handles the forms providers actually emit", () => {
   assert.equal(normalize(""), "");
 });
 
+test("Indic scripts keep their vowel signs, so words stay whole and different words stay different", () => {
+  assert.equal(normalize("வணக்கம் எல்லோரும்!"), "வணக்கம் எல்லோரும்");
+  assert.equal(normalize("नमस्ते, दोस्तों।"), "नमस्ते दोस्तों");
+  const r = wer(normalize("வணக்கம் எல்லோரும்"), normalize("வணக்கம் எல்லாரும்"));
+  assert.equal(r.referenceWords, 2);
+  assert.equal(r.substitutions, 1);
+});
+
 test("numbers read the way people say them", () => {
   assert.equal(numberToWords("0"), "zero");
   assert.equal(numberToWords("117"), "one hundred seventeen");

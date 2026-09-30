@@ -67,7 +67,7 @@ Before alignment, the same normalisation is applied to both the reference and ea
 
 1. Unicode NFKC, lower-case, curly apostrophes made straight.
 2. `&` becomes "and", `$5` becomes "5 dollars", `12%` becomes "12 percent", and thousands separators are removed.
-3. Hyphens and dashes become spaces. All other punctuation is removed, except apostrophes inside words (`quilter's`) and decimal points.
+3. Hyphens and dashes become spaces. All other punctuation is removed, except apostrophes inside words (`quilter's`) and decimal points. Letters and combining marks in any script are kept: in Tamil, Hindi and other Indic scripts the vowel signs are combining marks, and dropping them would split words apart and make different words look identical.
 4. Spoken abbreviations are expanded: `mr` mister, `mrs` missus, `ms` miss, `dr` doctor, `st` saint, `vs` versus.
 5. Digits become words the way they are usually spoken:
    - `25` → twenty five, `2nd` → second, `3.5` → three point five
@@ -98,7 +98,9 @@ Turnaround is the time from the `transcribe` request to the first poll of `GET /
 
 - It **overstates** the true figure by up to one poll interval (default 5 s). `run.json` keeps a lower bound, taken from the previous poll, for each job.
 - It measures **turnaround through MeetStream**: queueing, fetching the recording, the provider's own processing and storing the result. It is what a MeetStream customer waits, not the provider's raw API latency.
-- All providers are submitted at the same moment so they run under the same load. Each gets one sample per recording (see above), so treat a single run's turnaround as indicative. A gap of a few seconds between providers is within the noise.
+- All providers are submitted at the same moment so they run under the same load. Each gets one sample per recording (see above), so treat a single run's turnaround as indicative. A gap of a few seconds between providers is within the noise, and the app marks every provider within one poll interval of the fastest as tied for fastest.
+- **Re-running a recording isn't a new test.** MeetStream runs each provider once per recording, so a second benchmark of the same bot reuses the first run's transcripts, untimed. The app warns before you do it. An earlier transcript is only reused if MeetStream reports the same model and settings (or doesn't report them); one made with a different model, say `nova-2` for `nova-3`, is not scored under this provider's name.
+- **Without a reference, words transcribed is not a score.** A provider that returns more words may be hallucinating or picking up background talk, so the app shows the count but doesn't call anyone best on it.
 - **Failed attempts are retried once.** A job that fails inside MeetStream before reaching the provider ("Retranscription failed before provider submission") tells you nothing about that provider, so it is resubmitted once. You can also re-run a provider into an existing run with `--append`. Either way, `run.json` keeps every attempt, and `results.md` notes the retry and that the provider wasn't timed alongside the others.
 - **Fallback: live transcription.** If the re-transcribe endpoint refuses a provider that works at bot creation (this happened to AssemblyAI for part of 2026-09-28), `npm run record -- --live-provider <p>` runs it live on the recording bot. Its turnaround is then timed from the bots leaving the call, which includes MeetStream's post-call media processing, so the table marks it with † as not comparable.
 - "× real time" is the turnaround divided by the clip length. For example, 0.25× means a 3-minute clip took 45 s.

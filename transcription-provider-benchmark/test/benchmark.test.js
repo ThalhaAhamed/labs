@@ -157,6 +157,40 @@ test("a bot that already spent its one meetstream run is scored from that run's 
   }
 });
 
+test("an earlier transcript made with a different model isn't scored under this provider's name", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => ({ transcript_id: "again" });
+  api.listTranscriptions = async () => [
+    { transcript_id: "again", provider: "deepgram", status: "Failed", error: "Equivalent retranscription work was already claimed" },
+    { transcript_id: "old", provider: "deepgram", status: "Success", config: { model: "nova-2", language: "en" } },
+  ];
+  api.getTranscript = async () => [{ start_time: 0, transcript: OUTPUTS.deepgram }];
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-10", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
+    const job = run.jobs.find((j) => j.provider === "deepgram");
+    assert.notEqual(job.status, "Success");
+    assert.equal(job.reused, undefined);
+    assert.match(job.note, /different settings.*nova-2/);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a provider the transcribe endpoint refuses is scored from its live run, with the post-call timing marked", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
   const cwd = process.cwd();

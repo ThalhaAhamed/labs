@@ -170,6 +170,16 @@ async function lookUpBot() {
   } else {
     info.textContent = "Not recorded with this app, so what was said isn't known. For accuracy, paste a transcript of the meeting; otherwise pick None.";
   }
+  // Already benchmarked: MeetStream won't run a provider twice on one
+  // recording, so another run isn't a new test. Point at the existing one.
+  const past = rec.pastRuns?.[0];
+  if (past && !rec.speaker) {
+    info.classList.remove("ok");
+    const when = past.started_at ? new Date(past.started_at).toLocaleString() : past.id;
+    info.replaceChildren(
+      `Already benchmarked here on ${when}. MeetStream runs each provider only once per recording, so another run would reuse those same transcripts, with no turnaround times: not a new test. For fresh numbers, record again. `,
+      el("a", { href: "#", onclick: (e) => { e.preventDefault(); showRun(past.id); } }, "Open that run"));
+  }
   updateSetup();
 }
 $("#botId").addEventListener("input", lookUpBot);
@@ -585,28 +595,37 @@ async function showRun(id) {
     el("a", { class: "secondary", href: `/api/runs/${id}/download/results.md` }, "↓ results.md"),
     el("a", { class: "secondary", href: `/api/runs/${id}/download/results.json` }, "↓ results.json"));
 
-  // Metrics: lower is better except words transcribed.
+  // Metrics, lower is better. Words transcribed (no reference) is shown but
+  // never called best: without knowing what was said, more words may just be
+  // more mistakes. Turnaround is only known to one poll interval, so
+  // providers within one poll of the fastest are tied for fastest.
+  const poll = data.poll_seconds ?? 5;
   const metrics = [
-    ...(scored ? [{ key: "wer", label: "WER", sub: "lower is better", fmt: pct }] : [{ key: "words", label: "Words", sub: "more captured", fmt: (v) => String(v), higher: true }]),
-    { key: "turnaround_median_s", label: "Turnaround", sub: "lower is better", fmt: secs },
+    ...(scored ? [{ key: "wer", label: "WER", sub: "lower is better", fmt: pct }] : [{ key: "words", label: "Words", sub: "not a quality score", fmt: (v) => String(v), neutral: true }]),
+    { key: "turnaround_median_s", label: "Turnaround", sub: `lower is better, ±${poll} s`, fmt: secs, tie: poll },
     { key: "cost_usd", label: "Cost", sub: "this recording", fmt: usd },
   ];
   const bestOf = (m) => {
     const vals = ran.map((p) => p[m.key]).filter((v) => v != null);
-    return vals.length ? (m.higher ? Math.max : Math.min)(...vals) : null;
+    return m.neutral || !vals.length ? null : Math.min(...vals);
   };
   const maxOf = (m) => Math.max(0, ...ran.map((p) => p[m.key] ?? 0));
   for (const m of metrics) { m.best = bestOf(m); m.max = maxOf(m); }
+  const isBestFor = (m, v) => v != null && m.best != null && (m.tie ? v - m.best <= m.tie + 1e-9 : v === m.best);
 
-  const who = (m) => (m.best == null ? "not measured" : ran.filter((p) => p[m.key] === m.best).map((p) => nameOf(p.provider)).join(", "));
-  $("#summaryCards").replaceChildren(...metrics.map((m) =>
+  const who = (m) => {
+    if (m.best == null) return "not measured";
+    const names = ran.filter((p) => isBestFor(m, p[m.key])).map((p) => nameOf(p.provider));
+    return names.length > 1 && m.tie ? `${names.join(", ")} (tied within the ${m.tie} s poll)` : names.join(", ");
+  };
+  $("#summaryCards").replaceChildren(...metrics.filter((m) => !m.neutral).map((m) =>
     el("div", { class: "stat" },
-      el("div", { class: "label" }, m.key === "wer" ? "Most accurate" : m.key === "words" ? "Most words captured" : m.key === "cost_usd" ? "Cheapest" : "Fastest"),
+      el("div", { class: "label" }, m.key === "wer" ? "Most accurate" : m.key === "cost_usd" ? "Cheapest" : "Fastest"),
       el("div", { class: "value" }, m.best == null ? "–" : m.fmt(m.best)),
       el("div", { class: "who" }, who(m)))));
 
   // Rank by the headline metric (accuracy, or speed when there's no reference).
-  const primary = metrics[0].higher ? metrics[1] : metrics[0];
+  const primary = metrics[0].neutral ? metrics[1] : metrics[0];
   const rankOrder = [...ran].sort((a, b) => (a[primary.key] ?? Infinity) - (b[primary.key] ?? Infinity));
   // Standard competition ranking: equal scores share a rank (01, 01, 03).
   const score = (p) => p[primary.key] ?? Infinity;
@@ -621,13 +640,13 @@ async function showRun(id) {
       key: m.key, label: m.label, sub: m.sub,
       cell: (p) => {
         const v = p[m.key];
-        const isBest = v != null && v === m.best;
+        const isBest = isBestFor(m, v);
         const width = v == null || !m.max ? 0 : Math.max(2, (v / m.max) * 100);
         const td = el("td", { class: isBest ? "best" : "" },
           el("div", { class: "metric" },
             el("span", { class: "num" }, isBest ? el("span", { class: "badge" }, "BEST") : null, isBest ? " " : null, m.fmt(v)),
             el("div", { class: "track", "aria-hidden": "true" }, el("span", { class: `fill ${isBest ? "best" : ""}`, style: `width:${width}%` }))));
-        td.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), [[m.label, m.fmt(v)], ...(m.best != null && v != null && !isBest ? [["vs best", m.higher ? `${v - m.best}` : `${(v / m.best).toFixed(1)}×`]] : [])]));
+        td.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), [[m.label, m.fmt(v)], ...(m.best != null && v != null && !isBest ? [["vs best", `${(v / m.best).toFixed(1)}×`]] : [])]));
         td.addEventListener("pointerleave", hideTip);
         return td;
       },

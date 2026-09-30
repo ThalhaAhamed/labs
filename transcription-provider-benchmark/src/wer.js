@@ -122,8 +122,11 @@ function normalize(text) {
   // Hyphens and dashes join words that are spoken separately.
   s = s.replace(/[-‐-―]/g, " ");
   // Keep letters, digits, apostrophes and the decimal point between digits.
+  // Also combining marks (\p{M}): in Tamil, Hindi and other Indic scripts the
+  // vowel signs are marks, and dropping them splits words apart and makes
+  // different words look the same.
   s = s.replace(/(\d)\.(\d)/g, "$1\u0000$2");
-  s = s.replace(/[^\p{L}\p{N}'\u0000\s]/gu, " ");
+  s = s.replace(/[^\p{L}\p{M}\p{N}'\u0000\s]/gu, " ");
   s = s.replace(/\u0000/g, ".");
 
   const out = [];
