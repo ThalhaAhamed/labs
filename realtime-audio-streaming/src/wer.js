@@ -1,5 +1,6 @@
 // Copied from ../transcription-provider-benchmark/src/wer.js so both examples
 // score WER identically; keep the two in step if either changes.
+import { createRequire } from "module";
 
 /**
  * Word error rate, and the text normalisation applied to both sides before
@@ -110,9 +111,28 @@ const ABBREVIATIONS = {
 // Hesitations a reader never says but some providers write down anyway.
 const FILLERS = new Set(["um", "uh", "hmm", "mm", "mhm", "mmm", "erm"]);
 
+// British → American spelling ("recognising" → "recognizing"), so a spelling
+// convention isn't scored as a recognition error. The list is Whisper's
+// (src/data/NOTICE.md), the same one scripts/score_jiwer.py applies.
+const SPELLING = createRequire(import.meta.url)("./data/english-spelling.json");
+
+// Contractions with only one reading are expanded, so "don't" and "do not"
+// match. "'s" (is / has / possessive) and "'d" (had / would) are ambiguous
+// and left as written.
+const CONTRACTION_WORDS = { "won't": "will not", "can't": "can not", "shan't": "shall not", cannot: "can not" };
+const CONTRACTION_ENDINGS = [["n't", " not"], ["'re", " are"], ["'ve", " have"], ["'ll", " will"], ["'m", " am"]];
+
+function expandContraction(word) {
+  if (CONTRACTION_WORDS[word]) return CONTRACTION_WORDS[word];
+  for (const [end, full] of CONTRACTION_ENDINGS) {
+    if (word.length > end.length && word.endsWith(end)) return word.slice(0, -end.length) + full;
+  }
+  return word;
+}
+
 /**
- * normalize("Mr. Quilter's 2nd-best idea, isn't it?")
- *   -> "mister quilter's second best idea isn't it"
+ * normalize("Mr. Quilter's 2nd-best idea, isn't it, colour-wise?")
+ *   -> "mister quilter's second best idea is not it color wise"
  */
 function normalize(text) {
   let s = String(text ?? "").normalize("NFKC").toLowerCase();
@@ -125,8 +145,11 @@ function normalize(text) {
   // Hyphens and dashes join words that are spoken separately.
   s = s.replace(/[-‐-―]/g, " ");
   // Keep letters, digits, apostrophes and the decimal point between digits.
+  // Also combining marks (\p{M}): in Tamil, Hindi and other Indic scripts the
+  // vowel signs are marks, and dropping them splits words apart and makes
+  // different words look the same.
   s = s.replace(/(\d)\.(\d)/g, "$1\u0000$2");
-  s = s.replace(/[^\p{L}\p{N}'\u0000\s]/gu, " ");
+  s = s.replace(/[^\p{L}\p{M}\p{N}'\u0000\s]/gu, " ");
   s = s.replace(/\u0000/g, ".");
 
   const out = [];
@@ -135,6 +158,7 @@ function normalize(text) {
     if (!word || FILLERS.has(word)) continue;
     if (ABBREVIATIONS[word]) word = ABBREVIATIONS[word];
     else if (/\d/.test(word)) word = numberToWords(word);
+    else word = expandContraction(SPELLING[word] ?? word);
     out.push(word);
   }
   return out.join(" ").split(" ").filter(Boolean).join(" ");
@@ -148,7 +172,7 @@ function normalize(text) {
  *   wer("the cat sat", "the bat sat down")
  *   -> { wer: 0.667, substitutions: 1, deletions: 0, insertions: 1, hits: 2, referenceWords: 3, ... }
  */
-function wer(reference, hypothesis) {
+function wer(reference, hypothesis, { joinCompounds = true } = {}) {
   const ref = reference ? reference.split(" ").filter(Boolean) : [];
   const hyp = hypothesis ? hypothesis.split(" ").filter(Boolean) : [];
   const R = ref.length;
@@ -182,6 +206,32 @@ function wer(reference, hypothesis) {
     }
   }
   alignment.reverse();
+
+  // Compound words written with or without a space ("up guards" / "upguards",
+  // "mantel board" / "mantelboard") are the same words heard: a block of
+  // errors whose reference and hypothesis words join to the same letters is
+  // scored as correct. A different spelling ("michael angelo" / "michelangelo")
+  // doesn't join to the same letters and stays an error.
+  if (joinCompounds) {
+    for (let k = 0; k < alignment.length; k++) {
+      if (alignment[k].op === "=") continue;
+      for (let len = Math.min(4, alignment.length - k); len >= 2; len--) {
+        const block = alignment.slice(k, k + len);
+        if (block.some((a) => a.op === "=")) continue;
+        const refs = block.map((a) => a.ref).filter(Boolean);
+        const hyps = block.map((a) => a.hyp).filter(Boolean);
+        if (!refs.length || !hyps.length || refs.length + hyps.length < 3 || refs.join("") !== hyps.join("")) continue;
+        for (const a of block) {
+          if (a.op === "S") substitutions--;
+          else if (a.op === "D") deletions--;
+          else insertions--;
+        }
+        hits += refs.length;
+        alignment.splice(k, len, { op: "=", ref: refs.join(" "), hyp: hyps.join(" "), joined: true });
+        break;
+      }
+    }
+  }
 
   const errors = substitutions + deletions + insertions;
   return {
@@ -220,7 +270,8 @@ function clipWindow(reference, hypothesis, anchor = 3) {
   // Position in ref and hyp at each alignment step.
   const steps = [];
   let ri = 0, hi = 0;
-  for (const a of wer(reference, hypothesis).alignment) {
+  // Word-by-word alignment (compounds not joined) keeps positions exact.
+  for (const a of wer(reference, hypothesis, { joinCompounds: false }).alignment) {
     steps.push({ op: a.op, ri, hi });
     if (a.op !== "I") ri++;
     if (a.op !== "D") hi++;
