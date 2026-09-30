@@ -151,7 +151,9 @@ Details:
 
 - **Not meeting speech.** The default clip is read English. Conversational speech, accents, crosstalk, jargon and code-switching all change WER and can change rankings. To measure those, use `--audio` and `--reference` with your own recording and a verbatim transcript.
 - **Background speech during the clip still counts.** Keep the room silent while the clip plays.
-- **Small sample.** One word is 0.24 points of WER on 420 reference words. Treat gaps under about 2 points as a tie unless they hold across several clips.
+- **Small sample, one run.** One word is 0.24 points of WER on 420 reference words, and gaps under 1.6 points are within sampling noise (see Ties). The published result is one recording of one clip: one accuracy figure and one turnaround sample per provider, with no measure of spread. For claims, record at least 5 times on at least 3 clips, including real meeting audio, and publish the median, spread and p95 turnaround.
+- **The sample may be in providers' training data.** LibriSpeech is public and widely used, so some engines may have seen these exact recordings. That can flatter them relative to audio they haven't seen, and it may favour some providers more than others. Your own recordings don't have this problem.
+- **Language settings differ.** Each provider gets its documented English setting: `auto` for Mia Transcribe (no English code documented), `en` for Deepgram and JigsawStack, `en_us` for AssemblyAI, `en-IN` for Sarvam. See "Two choices deserve comment" above.
 - **One platform per recording.** Google Meet, Zoom and Teams process audio differently. Record once per platform if that matters to you.
 - **Default configs.** Providers can often do better with vocabulary hints or tuned settings. The table shows out-of-the-box behaviour through MeetStream.
 - **Not measured:** diarization accuracy, timestamp accuracy, the provider's own API latency, and live (streaming) latency.

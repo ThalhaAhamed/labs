@@ -23,6 +23,9 @@ How to read this:
 - **Scored on words, not formatting.** British/American spelling, unambiguous contractions and compound words written with or without a space (`upguards` / `up guards`) are not counted as errors. These rules were added on 2026-09-30 and Test 1 was re-scored from the same raw transcripts: WER went from 2.1 / 2.9 / 3.8 / 5.0% to 1.4 / 2.6 / 3.1 / 3.8% (Mia Transcribe and JigsawStack / AssemblyAI / Deepgram / Sarvam). Every error removed was a formatting difference, and the ranking didn't change. `michael angelo` / `michelangelo` is still counted: it is a different spelling, not a space.
 - **Turnaround is a window, not a number.** It is MeetStream's end-to-end time from the re-transcribe request (the request itself, queueing, the provider's processing), not the provider's own API latency. This run polled every 5 s, so each job is only known to have finished between two polls. Mia Transcribe and Deepgram both finished within 2.5–8.6 s and can't be told apart; AssemblyAI finished within 8.6–14.3 s and Sarvam within 14.3–20.1 s. New runs poll every 1 s.
 - **One run.** One recording of one clip gives one sample per provider, with no measure of spread. Treat the numbers as indicative.
+- **Read speech, and possibly familiar.** The clip is LibriSpeech audiobook audio, not a meeting, and it's public, so some engines may have trained on it. Your own recordings are the better test (see below).
+- **Different language settings.** `auto` for Mia Transcribe, `en` for Deepgram and JigsawStack, `en_us` for AssemblyAI, `en-IN` for Sarvam: each provider's documented English option through MeetStream. `en-IN` may disadvantage Sarvam on this American and British speech.
+- **Written by an interested party.** MeetStream wrote this harness and sells one of the engines it measures. Everything needed to check a result without trusting it is in the results folder.
 - **JigsawStack was re-run.** Its first attempt failed inside MeetStream before reaching JigsawStack ("Retranscription failed before provider submission"). It was re-run on the same recording about 90 seconds later, on its own. `results.md` records both attempts.
 - **The independent scorer agrees on the ranking.** `scripts/score_jiwer.py` (jiwer with Whisper's normaliser, which MeetStream didn't write) ranks the providers the same way. Its figures are up to 1.1 points higher, because Whisper's normaliser counts compound spacing (`upguards`) as errors.
 - **Every provider's raw transcript is in the results folder.** To re-score it yourself, see [Reproducing a result](METHODOLOGY.md#reproducing-a-result).
@@ -206,11 +209,14 @@ results/<run>/
 | `src/benchmark.js` | Submits every provider together, polls and saves raw output |
 | `src/report.js` | Scores a run directory into `results.md` and `results.json` |
 | `src/wer.js` | Normalisation and WER alignment |
-| `src/transcript.js` | Flattens either transcript response shape to text |
+| `src/data/english-spelling.json` | British → American spelling pairs (Whisper's list, MIT; see `src/data/NOTICE.md`) |
+| `src/transcript.js` | Flattens either transcript response shape to text; refuses shapes it doesn't know |
+| `src/version.js` | The harness version and commit recorded in every run |
+| `server.js`, `public/` | The browser app and its local API |
 | `scripts/fetch-sample.js` | Builds the pinned LibriSpeech clip |
 | `scripts/score_jiwer.py` | Independent re-score with jiwer and the Whisper normaliser |
 
-`npm test` runs the scorer, the transcript parser, the `sendaudio` streaming path and a full benchmark against a stubbed API. It needs no key and no network.
+`npm test` runs the scorer (with hand-worked WER cases), the transcript parser, the `sendaudio` streaming path, full benchmarks against a stubbed API (including failed, rate-limited, unreadable and duplicate providers), the scorer's refusal to leave a results folder, and the local server's endpoints. It needs no key and no network. `npm run lint` runs ESLint. The desktop workflow runs both before building any installer.
 
 ## Attribution
 

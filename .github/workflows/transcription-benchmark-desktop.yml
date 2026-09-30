@@ -20,15 +20,30 @@ defaults:
     working-directory: transcription-provider-benchmark
 
 jobs:
+  # Lint and the test suite first: no installer is built from code that fails them.
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: transcription-provider-benchmark/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
   build:
+    needs: check
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: windows-x64, os: windows-latest, cmd: "npx electron-builder --win --x64 --publish never", files: "transcription-provider-benchmark/dist/*.exe" }
-          - { name: macos-arm64, os: macos-15, cmd: "npx electron-builder --mac --arm64 --publish never", files: "transcription-provider-benchmark/dist/*.dmg" }
-          - { name: macos-x64, os: macos-15-intel, cmd: "npx electron-builder --mac --x64 --publish never", files: "transcription-provider-benchmark/dist/*.dmg" }
-          - { name: linux-x64, os: ubuntu-22.04, cmd: "npx electron-builder --linux --x64 --publish never", files: "transcription-provider-benchmark/dist/*.AppImage\ntranscription-provider-benchmark/dist/*.deb" }
+          - { name: windows-x64, os: windows-latest, cmd: "node build/dist.js --win --x64 --publish never", files: "transcription-provider-benchmark/dist/*.exe" }
+          - { name: macos-arm64, os: macos-15, cmd: "node build/dist.js --mac --arm64 --publish never", files: "transcription-provider-benchmark/dist/*.dmg" }
+          - { name: macos-x64, os: macos-15-intel, cmd: "node build/dist.js --mac --x64 --publish never", files: "transcription-provider-benchmark/dist/*.dmg" }
+          - { name: linux-x64, os: ubuntu-22.04, cmd: "node build/dist.js --linux --x64 --publish never", files: "transcription-provider-benchmark/dist/*.AppImage\ntranscription-provider-benchmark/dist/*.deb" }
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     env:
