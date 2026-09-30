@@ -55,7 +55,17 @@ function score(runDir) {
     const scored = [];
     for (const job of jobs.filter((j) => j.status === "Success" && j.transcript_file)) {
       const raw = JSON.parse(fs.readFileSync(path.join(runDir, job.transcript_file), "utf8"));
-      const hypothesis = normalize(transcriptText(raw));
+      let text;
+      try {
+        text = transcriptText(raw);
+      } catch (err) {
+        // Unreadable (an older run, or a response this code doesn't know):
+        // report it as a failure rather than scoring it as silence.
+        job.status = "ParseFailed";
+        job.error = err.message;
+        continue;
+      }
+      const hypothesis = normalize(text);
       fs.writeFileSync(path.join(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
       // Score only what falls inside the clip; talk before or after it in
       // the room is not the provider's error. The untrimmed figure is kept.

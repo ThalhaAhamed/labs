@@ -203,6 +203,39 @@ test("a failed or rate-limited provider is marked not run with its reason; the o
   }
 });
 
+test("a transcript in a shape we can't read is a failure, not a provider that heard nothing", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async (_bot, provider) => ({ transcript_id: `t-${Object.keys(provider)[0]}` });
+  api.listTranscriptions = async () => ["deepgram", "sarvam"].map((p) => ({ transcript_id: `t-${p}`, provider: p, status: "Success" }));
+  api.getTranscript = async (id, opts) => (opts?.raw ? {} : id === "t-deepgram" ? [{ start_time: 0, transcript: OUTPUTS.deepgram }] : { results: { utterances: [{ text: "?" }] } });
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-12", referencePath: "reference.txt", providers: ["deepgram", "sarvam"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const by = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8")).providers.map((r) => [r.provider, r]));
+    assert.equal(by.deepgram.ran, true);
+    assert.equal(by.sarvam.ran, false);
+    assert.match(by.sarvam.reason, /unrecognised transcript shape/);
+    const job = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8")).jobs.find((j) => j.provider === "sarvam");
+    assert.equal(job.status, "ParseFailed");
+    assert.ok(fs.existsSync(path.join(runDir, job.transcript_file)), "the unreadable response is kept for inspection");
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("an earlier transcript made with a different model isn't scored under this provider's name", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
   const cwd = process.cwd();

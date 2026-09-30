@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { transcriptText } = require("../src/transcript");
+const { transcriptText, UnrecognizedTranscript } = require("../src/transcript");
 
 test("documented shape: segments in time order, speakers dropped", () => {
   const data = [
@@ -30,8 +30,15 @@ test("segments missing a start time keep the API's order", () => {
   assert.equal(transcriptText(data), "b a");
 });
 
-test("empty and unknown shapes give an empty string", () => {
+test("an empty list is real silence and gives an empty string", () => {
   assert.equal(transcriptText([]), "");
-  assert.equal(transcriptText({}), "");
-  assert.equal(transcriptText(null), "");
+  assert.equal(transcriptText({ message: [] }), "");
+});
+
+test("unknown shapes and error bodies throw instead of looking like silence", () => {
+  for (const bad of [{}, null, { results: { utterances: [{ text: "hi" }] } }, [{ foo: 1 }],
+    "<html><body><h1>502 Bad Gateway</h1></body></html>", '{"error":"internal"}']) {
+    assert.throws(() => transcriptText(bad), UnrecognizedTranscript, JSON.stringify(bad));
+  }
+  assert.equal(transcriptText("plain words are a transcript"), "plain words are a transcript");
 });

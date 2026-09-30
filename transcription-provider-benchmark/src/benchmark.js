@@ -14,6 +14,7 @@ const api = require("./api");
 const { PROVIDERS } = require("./providers");
 const { sha256File } = require("./audio");
 const { score } = require("./report");
+const { transcriptText } = require("./transcript");
 
 const STILL_RECORDING = new Set(["Scheduled", "Joining", "InWaitingRoom", "InMeeting", "Recording", "Leaving", "Stopped", "MediaProcessing"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -234,6 +235,16 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
         const data = await api.getTranscript(job.transcript_id);
         job.transcript_file = `transcripts/${job.provider}.r${round}${existing ? ".appended" : job.attempt ? `.a${job.attempt}` : ""}.json`;
         fs.writeFileSync(path.join(runDir, job.transcript_file), JSON.stringify(data, null, 2));
+        // A response we can't read is a failure, not a provider that heard
+        // nothing. The file is kept for inspection.
+        try {
+          if (!transcriptText(data)) job.note = [job.note, "the provider returned an empty transcript"].filter(Boolean).join("; ");
+        } catch (err) {
+          job.status = "ParseFailed";
+          job.error = err.message;
+          console.log(`   ${job.provider.padEnd(12)} ParseFailed  ${err.message}`);
+          continue;
+        }
       } catch (err) {
         job.status = "FetchFailed";
         job.error = api.describeError(err);
