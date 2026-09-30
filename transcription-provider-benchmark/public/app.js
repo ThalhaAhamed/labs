@@ -81,10 +81,9 @@ let lastSource = null;
 function referenceKinds(m, audio, rec) {
   if (m === "two-bot") return { sample: ["sample", "none"], script: ["script", "none"], upload: ["text", "none"] }[audio];
   if (m === "recorder") return ["text", "none"];
-  const kinds = [];
-  if (rec?.reference) kinds.push("saved");
-  if (!rec?.known || rec.source === "sample") kinds.push("sample");
-  return [...kinds, "text", "none"];
+  // An existing recording is only audio: its reference is known only if this
+  // app recorded it and saved one.
+  return [...(rec?.reference ? ["saved"] : []), "text", "none"];
 }
 function defaultReference(m, audio, rec) {
   if (m === "two-bot") return { sample: "sample", script: "script" }[audio] ?? "none";
@@ -109,9 +108,6 @@ function updateSetup() {
   $("#savedNote").textContent = rec?.reference
     ? `${SOURCE_NAMES[rec.source]}, ${rec.reference.words} words.`
     : "";
-  $("#sampleNote").textContent = m === "existing" && !rec?.known
-    ? "Only if this bot heard the sample clip being played."
-    : "The exact words of the sample clip.";
 
   // Typed script: the bot speaks it with this machine's text-to-speech.
   const scripted = m === "two-bot" && audioKind() === "script";
@@ -172,7 +168,7 @@ async function lookUpBot() {
     info.textContent = `Recorded with this app${when}. ${SOURCE_NAMES[rec.source]}. ` +
       (rec.reference ? `Its reference (${rec.reference.words} words) is used for accuracy.` : "No reference was saved with it.");
   } else {
-    info.textContent = "Not recorded with this app, so it can't tell what was said. For accuracy, pick the sample's transcript if this bot heard the sample clip, or paste your own; otherwise pick None.";
+    info.textContent = "Not recorded with this app, so what was said isn't known. For accuracy, paste a transcript of the meeting; otherwise pick None.";
   }
   updateSetup();
 }

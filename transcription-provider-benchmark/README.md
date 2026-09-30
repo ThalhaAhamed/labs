@@ -113,7 +113,7 @@ Then open http://localhost:4173. After [connecting the providers](#before-your-f
    - the sample clip → its transcript;
    - a typed script → the script;
    - your own audio, or people talking → your own transcript (pasted or loaded from a file);
-   - a recording made with this app → the reference saved with it.
+   - an existing recording → the reference saved with it, if this app made it (a bot's recording is only audio, so for any other bot you paste your own transcript).
 
    Or pick none, which gives turnaround and cost only.
 3. **Tick the providers,** then run.

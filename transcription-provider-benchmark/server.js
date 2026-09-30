@@ -39,48 +39,65 @@ const SAMPLE_AUDIO = path.join(DATA, "sample", "clip.wav");
 const SAMPLE_REFERENCE = path.join(DATA, "sample", "reference.txt");
 const BOT_ID = /^[0-9a-f-]{36}$/i;
 
-// What this app knows about a bot it recorded (recordings/<bot>.json): what
-// was played, and whether a reference transcript was saved with it. null for
-// a bot recorded elsewhere.
+const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+const runJsons = () => (exists(RESULTS) ? fs.readdirSync(RESULTS).filter((d) => RUN_ID.test(d)).sort().reverse()
+  .map((d) => ({ dir: path.join(RESULTS, d), run: readJson(path.join(RESULTS, d, "run.json")) })).filter((r) => r.run) : []);
+
+// What this app knows about a bot it recorded: what was played, and the
+// reference transcript saved with it. From recordings/<bot>.json, or else from
+// a past run of that bot in results/ (so a bundled run like Test 1 is known in
+// a fresh install too). null for a bot recorded elsewhere: a recording is only
+// audio, so what was said there is unknown.
 function recordingInfo(botId) {
+  if (!BOT_ID.test(botId)) return null;
+  let rec = null, refFile = null;
   const file = path.join(RECORDINGS, `${botId}.json`);
-  if (!BOT_ID.test(botId) || !exists(file)) return null;
-  const rec = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (exists(file)) {
+    rec = readJson(file);
+    refFile = rec?.reference?.path ? path.resolve(DATA, rec.reference.path) : null;
+  }
+  // No saved recording, or its reference file is gone: a past run of this bot.
+  if (!rec || !refFile || !exists(refFile)) {
+    const past = runJsons().find(({ run }) => run.bot?.id === botId && run.recording);
+    if (past) {
+      rec = rec ?? past.run.recording;
+      refFile = past.run.reference ? path.join(past.dir, past.run.reference.file) : refFile;
+    }
+  }
+  if (!rec) return null;
   const clip = rec.clip;
   const source = !clip ? "live" : clip.synthetic_speech ? "script" : /(^|\/)sample\/clip\.wav$/.test(clip.path ?? "") ? "sample" : "upload";
-  const refFile = rec.reference?.path ? path.resolve(DATA, rec.reference.path) : null;
-  const referenceWords = refFile && exists(refFile) ? fs.readFileSync(refFile, "utf8").split(/\s+/).filter(Boolean).length : null;
+  const hasRef = refFile && exists(refFile);
   return {
     source,
     recordedAt: rec.played_at ?? rec.joined_at ?? null,
     clipSeconds: clip?.seconds ?? null,
     speakerBotId: rec.speaker_bot_id ?? null,
-    reference: referenceWords != null ? { words: referenceWords } : null,
+    reference: hasRef ? { words: fs.readFileSync(refFile, "utf8").split(/\s+/).filter(Boolean).length } : null,
+    referencePath: hasRef ? refFile : null, // server only, not sent to the page
   };
 }
 
 // Speaker bots this app sent: they only played audio, so there's nothing of
 // theirs to transcribe.
 function speakerBotIds() {
-  if (!exists(RECORDINGS)) return new Set();
-  return new Set(fs.readdirSync(RECORDINGS).filter((f) => f.endsWith(".json")).map((f) => {
-    try { return JSON.parse(fs.readFileSync(path.join(RECORDINGS, f), "utf8")).speaker_bot_id; } catch { return null; }
-  }).filter(Boolean));
+  const ids = exists(RECORDINGS)
+    ? fs.readdirSync(RECORDINGS).filter((f) => f.endsWith(".json")).map((f) => readJson(path.join(RECORDINGS, f))?.speaker_bot_id)
+    : [];
+  for (const { run } of runJsons()) ids.push(run.recording?.speaker_bot_id);
+  return new Set(ids.filter(Boolean));
 }
 
 // Which references make sense for an audio source. The sample's transcript
 // only fits audio that was the sample clip; a typed script is its own
-// reference; your own audio or live speech needs your own transcript.
+// reference; your own audio or live speech needs your own transcript. An
+// existing recording offers the reference saved with it, if this app made it
+// and saved one; otherwise only your own transcript, since a bot's recording
+// says nothing about what was said.
 function referenceKinds(mode, audioKind, rec) {
   if (mode === "two-bot") return { sample: ["sample", "none"], script: ["script", "none"], upload: ["text", "none"] }[audioKind] ?? [];
   if (mode === "recorder") return ["text", "none"];
-  // An existing recording: its saved reference if it has one, the sample's if
-  // it played the sample (or we can't tell), or your own transcript.
-  const kinds = [];
-  if (rec?.reference) kinds.push("saved");
-  if (!rec || rec.source === "sample") kinds.push("sample");
-  kinds.push("text", "none");
-  return kinds;
+  return [...(rec?.reference ? ["saved"] : []), "text", "none"];
 }
 
 // Under Electron, process.execPath is the app itself; ELECTRON_RUN_AS_NODE
@@ -165,8 +182,8 @@ app.get("/api/bots", async (_req, res) => {
 
 app.get("/api/recordings/:botId", (req, res) => {
   if (!BOT_ID.test(req.params.botId)) return res.status(400).json({ error: "Not a bot ID." });
-  const rec = recordingInfo(req.params.botId);
-  res.json({ known: !!rec, speaker: speakerBotIds().has(req.params.botId), ...(rec ?? {}) });
+  const { referencePath: _local, ...rec } = recordingInfo(req.params.botId) ?? {};
+  res.json({ known: !!rec.source, speaker: speakerBotIds().has(req.params.botId), ...rec });
 });
 
 // Builds sample/clip.wav + sample/reference.txt (npm run fetch-sample).
@@ -357,7 +374,8 @@ app.post("/api/jobs", async (req, res) => {
   // against people talking, for example).
   const audioKind = mode === "two-bot" ? spec.audio?.kind ?? "sample" : null;
   const refKind = spec.reference?.kind ?? "none";
-  if (!referenceKinds(mode, audioKind, mode === "existing" ? recordingInfo(spec.botId) : null).includes(refKind)) {
+  const botInfo = mode === "existing" ? recordingInfo(spec.botId) : null;
+  if (!referenceKinds(mode, audioKind, botInfo).includes(refKind)) {
     return res.status(400).json({ error: "That reference doesn't fit this audio. Pick one of the options shown." });
   }
   const noReference = refKind === "none";
@@ -366,9 +384,10 @@ app.post("/api/jobs", async (req, res) => {
   const dir = path.join(UPLOADS, job.id);
 
   // Reference: the sample's, pasted text, the one saved with the recording
-  // ("saved": the CLI reads it from recordings/<bot>.json), or none.
+  // (from recordings/ or a past run of the bot), or none.
   let referencePath = null;
   if (spec.reference?.kind === "sample") referencePath = SAMPLE_REFERENCE;
+  if (spec.reference?.kind === "saved") referencePath = botInfo.referencePath;
   if (spec.reference?.kind === "text" && spec.reference.text?.trim()) {
     fs.mkdirSync(dir, { recursive: true });
     referencePath = path.join(dir, "reference.txt");
