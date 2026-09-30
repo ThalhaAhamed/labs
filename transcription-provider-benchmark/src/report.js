@@ -31,6 +31,22 @@ function inRun(runDir, rel) {
   return full;
 }
 
+/** What a provider reports about the audio it was given, or null. */
+function audioReported(provider, raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const parts = [];
+  if (provider === "deepgram" && raw.metadata) {
+    if (typeof raw.metadata.duration === "number") parts.push(`${raw.metadata.duration.toFixed(1)} s`);
+    if (raw.metadata.channels) parts.push(`${raw.metadata.channels} channel${raw.metadata.channels === 1 ? "" : "s"}`);
+  }
+  if (provider === "assemblyai" && typeof raw.audio_duration === "number") parts.push(`${raw.audio_duration} s`);
+  if (provider === "sarvam") {
+    if (raw.audio_mime) parts.push(raw.audio_mime);
+    if (raw.audio_hash) parts.push(`hash ${String(raw.audio_hash).slice(0, 12)}`);
+  }
+  return parts.length ? parts.join(", ") : null;
+}
+
 /** The model a provider reports in its raw response, or null if it doesn't say. */
 function modelReported(provider, raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -142,7 +158,7 @@ function score(runDir) {
     const requests = scored.map((s) => s.job.request_s).filter((x) => typeof x === "number");
     // Submitted on its own (a resubmission, or --append later): not timed
     // under the same conditions as the others, so not comparable on speed.
-    const separate = scored.some((s) => s.job.appended || s.job.attempt) && turnarounds.length > 0;
+    const separate = scored.some((s) => s.job.appended || s.job.attempt || s.job.submit_retried) && turnarounds.length > 0;
     const timing = {
       turnaround_median_s: median(turnarounds),
       turnaround_lower_s: median(lowers),
@@ -189,7 +205,8 @@ function score(runDir) {
       clip_found: scored.every((s) => s.window.anchored),
       wer_untrimmed: scored.reduce((n, s) => n + s.full.substitutions + s.full.deletions + s.full.insertions, 0) / refWords,
       ...timing,
-      real_time_factor: clipSeconds && turnarounds.length ? median(turnarounds) / clipSeconds : null,
+      // Set below, once the billed audio length is known.
+      real_time_factor: null,
       // A live run is timed from the bots leaving the call instead (see recorder.js).
       post_call_turnaround_s: scored.map((s) => s.job.turnaround_after_leaving_s).find((x) => typeof x === "number") ?? null,
       // Every error from the first successful round, so a reader can judge
@@ -224,7 +241,16 @@ function score(runDir) {
   const billedSeconds = audioSeconds([...rawByProvider.values()]);
   // The model each provider says it ran. "nova-3" or "universal-2" in the
   // request are aliases that move over time; this is what actually ran.
-  for (const row of rows.filter((r) => r.ran)) row.model_reported = modelReported(row.provider, rawByProvider.get(row.provider));
+  for (const row of rows.filter((r) => r.ran)) {
+    row.model_reported = modelReported(row.provider, rawByProvider.get(row.provider));
+    // What each provider says it received. MeetStream sends it the recording;
+    // this harness can't see the bytes, only what the provider reports back.
+    row.audio_reported = audioReported(row.provider, rawByProvider.get(row.provider));
+    // Turnaround over the audio actually transcribed (the whole recording,
+    // not just the clip), or the clip if no provider reported a length.
+    const audio = billedSeconds ?? clipSeconds;
+    if (reference && audio && row.turnaround_median_s != null) row.real_time_factor = row.turnaround_median_s / audio;
+  }
   for (const row of rows.filter((r) => r.ran)) {
     const c = costOf(row.provider, { seconds: billedSeconds, raw: rawByProvider.get(row.provider), config: run.providers[row.provider] });
     Object.assign(row, { cost_usd: c?.cost_usd ?? null, cost_per_hour_usd: c?.per_hour_usd ?? null, cost_basis: c?.basis ?? null, cost_source: c?.source ?? null });
@@ -270,6 +296,8 @@ function renderMarkdown(run, results) {
     : "- Harness: commit not recorded (this run predates recording it)");
   const models = results.providers.filter((r) => r.ran).map((r) => `${displayName(r.provider)} ${r.model_reported ?? "(not reported)"}`);
   if (models.length) L.push(`- Models as reported by each provider: ${models.join("; ")}`);
+  const audio = results.providers.filter((r) => r.ran).map((r) => `${displayName(r.provider)} ${r.audio_reported ?? "(not reported)"}`);
+  if (audio.length) L.push(`- Audio as reported by each provider (MeetStream sends each the same stored recording; the harness can't see the bytes): ${audio.join("; ")}`);
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");
 
   if (!run.reference) {
@@ -282,7 +310,7 @@ function renderMarkdown(run, results) {
     }
     L.push("", ...timingNotes(results), "", "Each provider's transcript is in `transcripts/`.");
   } else {
-  L.push("| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time | Cost | Per hour |");
+  L.push("| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time (of billed audio) | Cost | Per hour |");
   L.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const r of results.providers) {
     if (!r.ran) {

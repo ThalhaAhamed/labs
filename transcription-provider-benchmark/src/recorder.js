@@ -100,9 +100,25 @@ async function play(ws, botId, pcm) {
   process.stdout.write(`\r   playing  done (${(pcm.length / 2 / SEND_RATE).toFixed(1)}s)          \n`);
 }
 
+const MIN_CLIP_SECONDS = 3;
+const SILENT_PEAK = 330; // about -40 dBFS of 16-bit audio: nothing a provider could transcribe
+
+/**
+ * Refuses audio that can't make a meaningful run, before any bot is sent (two
+ * bots in a meeting cost money): too short, or silent.
+ */
+function checkClip(pcm) {
+  const seconds = pcm.length / 2 / SEND_RATE;
+  if (seconds < MIN_CLIP_SECONDS) throw new Error(`The audio is ${seconds.toFixed(2)} s long; use at least ${MIN_CLIP_SECONDS} s of speech.`);
+  let peak = 0;
+  for (let i = 0; i + 1 < pcm.length; i += 2) peak = Math.max(peak, Math.abs(pcm.readInt16LE(i)));
+  if (peak < SILENT_PEAK) throw new Error("The audio is silent (or nearly): there is nothing to transcribe.");
+  return seconds;
+}
+
 async function record({ meetingLink, audioPath, referencePath, port, liveProvider, synthetic = null }) {
   const pcm = await decodeToPcm(audioPath, SEND_RATE);
-  const clipSeconds = pcm.length / 2 / SEND_RATE;
+  const clipSeconds = checkClip(pcm);
   console.log(`  Clip       ${audioPath} (${clipSeconds.toFixed(1)}s)`);
   console.log(`  Reference  ${referencePath ?? "none (turnaround only, no accuracy)"}`);
   console.log(`  Meeting    ${meetingLink}\n`);
@@ -299,4 +315,4 @@ async function timeLiveTranscript(botId, provider, leftAt, pollMs = 5000, timeou
   return { provider, status: "TimedOut", left_call_at: new Date(leftAt).toISOString() };
 }
 
-module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, SEND_RATE };
+module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, checkClip, SEND_RATE };

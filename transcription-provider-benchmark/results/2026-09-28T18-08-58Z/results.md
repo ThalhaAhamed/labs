@@ -5,15 +5,16 @@
 - Rounds: 1, all providers submitted together each round; turnaround polled every 5s
 - Harness: commit not recorded (this run predates recording it)
 - Models as reported by each provider: Mia Transcribe (not reported); JigsawStack (not reported); AssemblyAI universal-2 (assemblyai_default, assemblyai_default); Deepgram general-nova-3 2025-07-31.0; Sarvam (not reported)
+- Audio as reported by each provider (MeetStream sends each the same stored recording; the harness can't see the bytes): Mia Transcribe (not reported); JigsawStack (not reported); AssemblyAI 258 s; Deepgram 257.2 s, 1 channel; Sarvam audio/wav, hash c39bb08c4d87
 - Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with `npm run score -- results/2026-09-28T18-08-58Z`
 
-| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time | Cost | Per hour |
+| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time (of billed audio) | Cost | Per hour |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Mia Transcribe | 2.1% | 7 | 2 | 0 | 0 words (untrimmed WER 2.1%) | 2.5–8.6s | 8.6s–8.6s | 0.05× | $0.0071 | $0.10 |
-| JigsawStack | 2.1% | 7 | 2 | 0 | 0 words (untrimmed WER 2.1%) | 1.0–7.5s ‡ | 7.5s–7.5s | 0.04× | $0.0019 | $0.03 |
-| AssemblyAI | 2.9% | 9 | 2 | 1 | 0 words (untrimmed WER 2.9%) | 8.6–14.3s | 14.3s–14.3s | 0.07× | $0.012 | $0.17 |
-| Deepgram | 3.8% | 12 | 4 | 0 | 0 words (untrimmed WER 3.8%) | 2.5–8.6s | 8.6s–8.6s | 0.05× | $0.018 | $0.26 |
-| Sarvam | 5.0% | 16 | 5 | 0 | 0 words (untrimmed WER 5.0%) | 14.3–20.1s | 20.1s–20.1s | 0.10× | $0.033 | $0.47 |
+| Mia Transcribe | 2.1% | 7 | 2 | 0 | 0 words (untrimmed WER 2.1%) | 2.5–8.6s | 8.6s–8.6s | 0.03× | $0.0071 | $0.10 |
+| JigsawStack | 2.1% | 7 | 2 | 0 | 0 words (untrimmed WER 2.1%) | 1.0–7.5s ‡ | 7.5s–7.5s | 0.03× | $0.0019 | $0.03 |
+| AssemblyAI | 2.9% | 9 | 2 | 1 | 0 words (untrimmed WER 2.9%) | 8.6–14.3s | 14.3s–14.3s | 0.06× | $0.012 | $0.17 |
+| Deepgram | 3.8% | 12 | 4 | 0 | 0 words (untrimmed WER 3.8%) | 2.5–8.6s | 8.6s–8.6s | 0.03× | $0.018 | $0.26 |
+| Sarvam | 5.0% | 16 | 5 | 0 | 0 words (untrimmed WER 5.0%) | 14.3–20.1s | 20.1s–20.1s | 0.08× | $0.033 | $0.47 |
 
 WER counts only words inside the clip: anything a provider transcribed before the clip started or after it ended (talk in the room while the bots joined) is cut first and shown under Outside clip. See METHODOLOGY.md for the rule.
 

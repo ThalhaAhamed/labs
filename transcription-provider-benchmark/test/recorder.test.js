@@ -48,3 +48,15 @@ test("the speaker bot's socket receives the clip as real-time-paced sendaudio ch
   const lastAt = received[5].at - started;
   assert.ok(lastAt >= 2800 && lastAt < 3600, `last chunk sent after ${lastAt}ms`);
 });
+
+test("audio that's too short or silent is refused before any bot is sent", () => {
+  const { checkClip } = require("../src/recorder");
+  const tone = (seconds, amplitude) => {
+    const b = Buffer.alloc(Math.round(SEND_RATE * seconds) * 2);
+    for (let i = 0; i < b.length / 2; i++) b.writeInt16LE(Math.round(amplitude * Math.sin((2 * Math.PI * 440 * i) / SEND_RATE)), i * 2);
+    return b;
+  };
+  assert.throws(() => checkClip(tone(0.05, 8000)), /at least 3 s/);
+  assert.throws(() => checkClip(tone(10, 0)), /silent/);
+  assert.equal(Math.round(checkClip(tone(5, 8000))), 5);
+});

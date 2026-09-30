@@ -184,7 +184,7 @@ test("a failed or rate-limited provider is marked not run with its reason; the o
     console.log = () => {};
     let runDir;
     try {
-      runDir = await benchmark({ botId: "bot-11", referencePath: "reference.txt", providers: ["deepgram", "sarvam", "assemblyai"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+      runDir = await benchmark({ botId: "bot-11", referencePath: "reference.txt", providers: ["deepgram", "sarvam", "assemblyai"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005, retryDelayMs: 10 });
     } finally {
       console.log = log;
     }
@@ -244,6 +244,80 @@ test("turnaround is reported as the window it's known to, and a separately submi
     process.chdir(cwd);
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// Runs `fn` in a fresh temp folder with console.log silenced.
+async function inTemp(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  const log = console.log;
+  process.chdir(dir);
+  console.log = () => {};
+  try { return await fn(dir); } finally { console.log = log; process.chdir(cwd); fs.rmSync(dir, { recursive: true, force: true }); }
+}
+const oneProvider = (text = OUTPUTS.deepgram, raw = {}) => {
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async (bot) => ({ transcript_id: `${bot}-t` });
+  api.listTranscriptions = async (bot) => [{ transcript_id: `${bot}-t`, provider: "deepgram", status: "Success" }];
+  api.getTranscript = async (_id, opts) => (opts?.raw ? raw : [{ start_time: 0, transcript: text }]);
+};
+
+test("a reference with no words is refused before anything is submitted", async () => {
+  await inTemp(async () => {
+    fs.writeFileSync("reference.txt", "Um.\n");
+    let submitted = false;
+    oneProvider();
+    api.transcribe = async () => { submitted = true; return { transcript_id: "t" }; };
+    const { benchmark } = require("../src/benchmark");
+    await assert.rejects(benchmark({ botId: "bot-16", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 }), /no words after normalisation/);
+    assert.equal(submitted, false);
+  });
+});
+
+test("two runs started in the same second get their own folders", async () => {
+  await inTemp(async () => {
+    fs.writeFileSync("reference.txt", REFERENCE + "\n");
+    oneProvider();
+    const { benchmark } = require("../src/benchmark");
+    const opts = { referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 };
+    const [a, b] = await Promise.all([benchmark({ ...opts, botId: "bot-17a" }), benchmark({ ...opts, botId: "bot-17b" })]);
+    assert.notEqual(a, b);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(a, "run.json"), "utf8")).bot.id, "bot-17a");
+    assert.equal(JSON.parse(fs.readFileSync(path.join(b, "run.json"), "utf8")).bot.id, "bot-17b");
+  });
+});
+
+test("a submit that hits a rate limit is retried once and marked as timed separately", async () => {
+  await inTemp(async () => {
+    fs.writeFileSync("reference.txt", REFERENCE + "\n");
+    oneProvider();
+    let calls = 0;
+    api.transcribe = async (bot) => {
+      if (++calls === 1) { const e = new Error("x"); e.response = { status: 429, data: { error: "Too many requests" } }; throw e; }
+      return { transcript_id: `${bot}-t` };
+    };
+    const { benchmark } = require("../src/benchmark");
+    const dir = await benchmark({ botId: "bot-18", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005, retryDelayMs: 10 });
+    const job = JSON.parse(fs.readFileSync(path.join(dir, "run.json"), "utf8")).jobs[0];
+    assert.equal(calls, 2);
+    assert.equal(job.status, "Success");
+    assert.match(job.submit_retried.first_error, /^HTTP 429/);
+    const [row] = JSON.parse(fs.readFileSync(path.join(dir, "results.json"), "utf8")).providers;
+    assert.equal(row.turnaround_comparable, false);
+  });
+});
+
+test("the link to the recording is removed from saved raw responses", async () => {
+  await inTemp(async () => {
+    fs.writeFileSync("reference.txt", REFERENCE + "\n");
+    oneProvider(OUTPUTS.deepgram, { audio_url: "https://cdn.example/upload/abc", audio_duration: 12 });
+    const { benchmark } = require("../src/benchmark");
+    const dir = await benchmark({ botId: "bot-19", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    const job = JSON.parse(fs.readFileSync(path.join(dir, "run.json"), "utf8")).jobs[0];
+    const raw = JSON.parse(fs.readFileSync(path.join(dir, job.raw_file), "utf8"));
+    assert.doesNotMatch(raw.audio_url, /https?:/);
+    assert.equal(raw.audio_duration, 12);
+  });
 });
 
 test("a run records the harness version and commit, and the model each provider reports", async () => {

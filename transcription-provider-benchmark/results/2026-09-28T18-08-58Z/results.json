@@ -34,7 +34,7 @@
       "turnaround_max_s": 8.64,
       "transcribe_request_s": null,
       "turnaround_comparable": true,
-      "real_time_factor": 0.045132812704050985,
+      "real_time_factor": 0.03359322723213192,
       "post_call_turnaround_s": null,
       "errors": [
         {
@@ -93,6 +93,7 @@
         "jigsawstack"
       ],
       "model_reported": null,
+      "audio_reported": null,
       "cost_usd": 0.007144297222222222,
       "cost_per_hour_usd": 0.1,
       "cost_basis": "$0.10/hr (MeetStream transcription add-on)",
@@ -126,7 +127,7 @@
       "turnaround_max_s": 7.46,
       "transcribe_request_s": null,
       "turnaround_comparable": false,
-      "real_time_factor": 0.03896884059863661,
+      "real_time_factor": 0.029005263327743534,
       "post_call_turnaround_s": null,
       "errors": [
         {
@@ -185,6 +186,7 @@
         "meetstream"
       ],
       "model_reported": null,
+      "audio_reported": null,
       "cost_usd": 0.0019493099999999999,
       "cost_per_hour_usd": 0.027284839073277948,
       "cost_basis": "$0.99 per 1M tokens (from the response's own usage)",
@@ -214,7 +216,7 @@
       "turnaround_max_s": 14.25,
       "transcribe_request_s": null,
       "turnaround_comparable": true,
-      "real_time_factor": 0.07443779873063965,
+      "real_time_factor": 0.055405496302995356,
       "post_call_turnaround_s": null,
       "errors": [
         {
@@ -287,6 +289,7 @@
         }
       },
       "model_reported": "universal-2 (assemblyai_default, assemblyai_default)",
+      "audio_reported": "258 s",
       "cost_usd": 0.012145305277777777,
       "cost_per_hour_usd": 0.16999999999999998,
       "cost_basis": "$0.15/hr Universal-2 + $0.02/hr speaker labels",
@@ -316,7 +319,7 @@
       "turnaround_max_s": 8.63,
       "transcribe_request_s": null,
       "turnaround_comparable": true,
-      "real_time_factor": 0.04508057565231019,
+      "real_time_factor": 0.033554346182094734,
       "post_call_turnaround_s": null,
       "errors": [
         {
@@ -407,6 +410,7 @@
         }
       },
       "model_reported": "general-nova-3 2025-07-31.0",
+      "audio_reported": "257.2 s, 1 channel",
       "cost_usd": 0.018432286833333335,
       "cost_per_hour_usd": 0.25800000000000006,
       "cost_basis": "$0.0043/min (Nova-3 pre-recorded)",
@@ -436,7 +440,7 @@
       "turnaround_max_s": 20.05,
       "transcribe_request_s": null,
       "turnaround_comparable": true,
-      "real_time_factor": 0.1047352887403035,
+      "real_time_factor": 0.0779565053245654,
       "post_call_turnaround_s": null,
       "errors": [
         {
@@ -553,6 +557,7 @@
         }
       },
       "model_reported": null,
+      "audio_reported": "audio/wav, hash c39bb08c4d87",
       "cost_usd": 0.033433171277038265,
       "cost_per_hour_usd": 0.4679700499168053,
       "cost_basis": "₹45/hr batch with diarization, at ₹96.16/$",

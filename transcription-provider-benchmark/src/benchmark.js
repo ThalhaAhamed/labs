@@ -15,6 +15,7 @@ const { PROVIDERS } = require("./providers");
 const { textSha256 } = require("./audio");
 const { score } = require("./report");
 const { transcriptText } = require("./transcript");
+const { normalize } = require("./wer");
 const { harnessInfo } = require("./version");
 
 const STILL_RECORDING = new Set(["Scheduled", "Joining", "InWaitingRoom", "InMeeting", "Recording", "Leaving", "Stopped", "MediaProcessing"]);
@@ -39,25 +40,51 @@ async function waitForRecording(botId) {
   }
 }
 
-async function submit(botId, provider, round) {
+/**
+ * Raw responses are published with a run, but some carry a link to the
+ * meeting recording itself (AssemblyAI's `audio_url`). For a real meeting
+ * that's private audio, so the link is replaced by a marker before saving.
+ */
+const AUDIO_LINK_KEYS = ["audio_url", "upload_url", "media_url"];
+function stripAudioLinks(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const out = { ...raw };
+  for (const k of AUDIO_LINK_KEYS) if (typeof out[k] === "string") out[k] = "(removed: link to the recording)";
+  return out;
+}
+
+// Worth one retry: rate limiting, a server error, or no response at all. A
+// 4xx like "not configured" or "already used" won't change by retrying.
+const transient = (err) => !err.response || err.response.status === 429 || err.response.status >= 500;
+
+async function submit(botId, provider, round, { retryDelayMs = 3000 } = {}) {
   const job = { provider, round, config: PROVIDERS[provider], submitted_at: new Date().toISOString() };
-  const t0 = Date.now();
-  try {
-    const res = await api.transcribe(botId, PROVIDERS[provider]);
-    // How long MeetStream took to accept the request; part of turnaround.
-    job.request_s = +((Date.now() - t0) / 1000).toFixed(2);
-    job.transcript_id = res.transcript_id;
-    job.status = "Processing";
-    job._t0 = t0;
-    if (!job.transcript_id) {
-      job.status = "Failed";
-      job.error = `transcribe returned no transcript_id: ${JSON.stringify(res)}`;
+  for (let attempt = 1; ; attempt++) {
+    const t0 = Date.now();
+    try {
+      const res = await api.transcribe(botId, PROVIDERS[provider]);
+      // How long MeetStream took to accept the request; part of turnaround.
+      job.request_s = +((Date.now() - t0) / 1000).toFixed(2);
+      job.transcript_id = res.transcript_id;
+      job.status = "Processing";
+      job._t0 = t0;
+      if (!job.transcript_id) {
+        job.status = "Failed";
+        job.error = `transcribe returned no transcript_id: ${JSON.stringify(res)}`;
+      }
+      return job;
+    } catch (err) {
+      job.status = "NotRun";
+      job.error = api.describeError(err);
+      if (attempt > 1 || !transient(err)) return job;
+      // One retry. Timed from the retry, which started later than the others,
+      // so this provider isn't compared with them on speed.
+      console.log(`   ${provider.padEnd(12)} ${job.error}; retrying once in ${retryDelayMs / 1000}s`);
+      job.submit_retried = { first_error: job.error, delay_s: retryDelayMs / 1000 };
+      job.submitted_at = new Date(Date.now() + retryDelayMs).toISOString();
+      await sleep(retryDelayMs);
     }
-  } catch (err) {
-    job.status = "NotRun";
-    job.error = api.describeError(err);
   }
-  return job;
 }
 
 /**
@@ -168,13 +195,18 @@ function failedBeforeProvider(job) {
   return job.status === "Failed" && /before provider submission/i.test(job.error ?? "");
 }
 
-async function benchmark({ botId, referencePath, noReference = false, providers, rounds, pollSeconds, timeoutMinutes, appendTo }) {
+async function benchmark({ botId, referencePath, noReference = false, providers, rounds, pollSeconds, timeoutMinutes, appendTo, retryDelayMs = 3000 }) {
   const recordingPath = path.join("recordings", `${botId}.json`);
   const recording = fs.existsSync(recordingPath) ? JSON.parse(fs.readFileSync(recordingPath, "utf8")) : null;
   // Without --reference, use the one saved with the recording, unless
   // --no-reference asks for turnaround and cost only.
   referencePath = noReference ? null : referencePath ?? recording?.reference?.path;
   if (referencePath && !fs.existsSync(referencePath)) throw new Error(`Reference ${referencePath} not found.`);
+  // A reference with no words (empty, or only "um.") can't score anything;
+  // refuse it rather than publish a run that claims accuracy it doesn't have.
+  if (referencePath && !normalize(fs.readFileSync(referencePath, "utf8"))) {
+    throw new Error(`Reference ${referencePath} has no words after normalisation; pass a real transcript or --no-reference.`);
+  }
   if (!referencePath) console.log("  No reference transcript: reporting turnaround only (pass --reference to score accuracy).");
 
   // --append adds providers to an existing run of the same recording (e.g. to
@@ -183,8 +215,18 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
   if (existing && existing.bot.id !== botId) {
     throw new Error(`${appendTo} is a run of bot ${existing.bot.id}, not ${botId}`);
   }
-  const runId = existing?.run_id ?? new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "Z";
-  const runDir = appendTo ?? path.join("results", runId);
+  // A new run claims its own folder: two runs started in the same second get
+  // "…Z" and "…Z-2" rather than writing over each other.
+  let runId = existing?.run_id, runDir = appendTo;
+  if (!existing) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "Z";
+    fs.mkdirSync("results", { recursive: true });
+    for (let n = 1; ; n++) {
+      runId = n === 1 ? stamp : `${stamp}-${n}`;
+      runDir = path.join("results", runId);
+      try { fs.mkdirSync(runDir); break; } catch (err) { if (err.code !== "EEXIST") throw err; }
+    }
+  }
   fs.mkdirSync(path.join(runDir, "transcripts"), { recursive: true });
   if (!existing && referencePath) fs.copyFileSync(referencePath, path.join(runDir, "reference.txt"));
 
@@ -201,7 +243,7 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
     const roundProviders = providers.filter((p) => !done.has(p));
     if (!roundProviders.length) break;
     console.log(`  Round ${round}/${rounds}: submitting ${roundProviders.length} providers at once`);
-    const batch = await Promise.all(roundProviders.map((p) => submit(botId, p, round)));
+    const batch = await Promise.all(roundProviders.map((p) => submit(botId, p, round, { retryDelayMs })));
     for (const job of batch.filter((j) => j.status === "NotRun" && !alreadyRun(j))) {
       console.log(`   ${job.provider.padEnd(12)} not run  ${job.error}`);
     }
@@ -210,7 +252,7 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
     const retry = batch.filter(failedBeforeProvider);
     if (retry.length) {
       console.log(`   resubmitting ${retry.map((j) => j.provider).join(", ")} (failed inside MeetStream before reaching the provider)`);
-      const again = await Promise.all(retry.map((j) => submit(botId, j.provider, round)));
+      const again = await Promise.all(retry.map((j) => submit(botId, j.provider, round, { retryDelayMs })));
       await pollUntilDone(botId, again, pollSeconds * 1000, timeoutMinutes * 60_000);
       for (const j of again) {
         j.attempt = 2;
@@ -257,7 +299,7 @@ async function benchmark({ botId, referencePath, noReference = false, providers,
       // (audio duration, or JigsawStack's token usage), so cost is computed
       // from the real call rather than estimated. Not fatal if unavailable.
       try {
-        const raw = await api.getTranscript(job.transcript_id, { raw: true });
+        const raw = stripAudioLinks(await api.getTranscript(job.transcript_id, { raw: true }));
         job.raw_file = job.transcript_file.replace(/\.json$/, ".raw.json");
         fs.writeFileSync(path.join(runDir, job.raw_file), JSON.stringify(raw, null, 2));
       } catch (err) {

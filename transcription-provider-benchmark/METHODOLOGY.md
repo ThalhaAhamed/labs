@@ -30,7 +30,9 @@ Two choices deserve comment:
 This is the property the rest of the design depends on.
 
 1. **Record once.** Two MeetStream bots join one meeting. The *speaker* plays the reference clip into the call through the bot `sendaudio` command. The *listener* records the call, the way a customer's notetaker would. The clip therefore passes through the platform's real audio path (codec, mixing, network), not a clean file upload.
-2. **Transcribe many times.** `POST /bots/{listener}/transcribe` is called once per provider. Each call re-transcribes the listener's single stored recording, so every provider gets byte-identical input. Accuracy differences can't come from one provider getting cleaner audio.
+2. **Transcribe many times.** `POST /bots/{listener}/transcribe` is called once per provider. Each call re-transcribes the listener's single stored recording, so by MeetStream's design every provider gets the same input, and accuracy differences can't come from one provider getting cleaner audio.
+
+The harness can't verify that last step: MeetStream sends the audio to each provider, and the harness never sees those bytes, so it can't rule out MeetStream converting the recording differently per provider. What it can do is record what each provider reports receiving. `results.md` lists it under "Audio as reported by each provider". In the published run, Deepgram reports 257.2 s of mono audio, AssemblyAI 258 s, and Sarvam a WAV file; the others don't say. The lengths agree, which is consistent with one recording, not proof of identical bytes.
 
 MeetStream runs each provider **once per recording**. Its docs don't say so, but the API enforces it in two ways:
 
