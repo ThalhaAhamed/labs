@@ -72,25 +72,50 @@ $("#saveKeys").addEventListener("click", async () => {
 const mode = () => $('input[name="mode"]:checked').value;
 const audioKind = () => $('input[name="audio"]:checked').value;
 const refKind = () => $('input[name="reference"]:checked').value;
-let lastMode = null;
+let botRec = null;          // what the app knows about the bot ID typed in (existing recording)
+let lastSource = null;
+
+// Which references fit the audio (the same rules the server enforces). The
+// sample's transcript only fits the sample clip; a typed script is its own
+// reference; your own audio or live speech needs your own transcript.
+function referenceKinds(m, audio, rec) {
+  if (m === "two-bot") return { sample: ["sample", "none"], script: ["script", "none"], upload: ["text", "none"] }[audio];
+  if (m === "recorder") return ["text", "none"];
+  const kinds = [];
+  if (rec?.reference) kinds.push("saved");
+  if (!rec?.known || rec.source === "sample") kinds.push("sample");
+  return [...kinds, "text", "none"];
+}
+function defaultReference(m, audio, rec) {
+  if (m === "two-bot") return { sample: "sample", script: "script" }[audio] ?? "none";
+  if (m === "existing" && rec?.reference) return "saved";
+  return "none";
+}
 
 function updateSetup() {
   const m = mode();
   for (const box of $$(".mode-fields")) box.hidden = box.dataset.mode !== m;
 
-  // A sensible reference default when the source changes: the sample's
-  // transcript goes with the sample clip; otherwise none until one is given.
-  if (m !== lastMode) {
-    const ref = m === "two-bot" ? (audioKind() === "sample" ? "sample" : audioKind() === "script" ? "script" : "none") : "none";
-    $(`input[name="reference"][value="${ref}"]`).checked = true;
-    lastMode = m;
+  // Show only the references that fit this audio, and pick the natural one
+  // whenever the audio changes (or the current pick stops fitting).
+  const rec = m === "existing" ? botRec : null;
+  const kinds = referenceKinds(m, audioKind(), rec);
+  for (const c of $$(".choice[data-ref]")) c.hidden = !kinds.includes(c.dataset.ref);
+  const source = `${m}|${audioKind()}|${rec?.botId ?? ""}`;
+  if (source !== lastSource || !kinds.includes(refKind())) {
+    $(`input[name="reference"][value="${defaultReference(m, audioKind(), rec)}"]`).checked = true;
+    lastSource = source;
   }
-  // Typed script: the bot speaks it with this machine's text-to-speech, and it
-  // is offered (and preselected) as the reference.
+  $("#savedNote").textContent = rec?.reference
+    ? `${SOURCE_NAMES[rec.source]}, ${rec.reference.words} words.`
+    : "";
+  $("#sampleNote").textContent = m === "existing" && !rec?.known
+    ? "Only if this bot heard the sample clip being played."
+    : "The exact words of the sample clip.";
+
+  // Typed script: the bot speaks it with this machine's text-to-speech.
   const scripted = m === "two-bot" && audioKind() === "script";
   $("#scriptBox").hidden = !scripted;
-  $("#scriptRefChoice").hidden = !scripted;
-  if (!scripted && refKind() === "script") $('input[name="reference"][value="none"]').checked = true;
   $('input[name="audio"][value="script"]').disabled = !status.tts;
   $("#scriptHint").textContent = status.tts
     ? `The speaker bot reads this out with this computer's text-to-speech (${status.tts}). Synthetic speech is cleaner than people talking, so accuracy reads higher than on real speech.`
@@ -109,10 +134,49 @@ function updateSetup() {
   $("#ngrokField").hidden = m !== "two-bot";
 }
 
-$$('input[name="mode"], input[name="audio"], input[name="reference"]').forEach((i) => i.addEventListener("change", () => {
-  if (i.name === "audio") $(`input[name="reference"][value="${audioKind() === "sample" ? "sample" : audioKind() === "script" ? "script" : "none"}"]`).checked = true;
+$$('input[name="mode"], input[name="audio"], input[name="reference"]').forEach((i) => i.addEventListener("change", updateSetup));
+
+// An existing bot: say what it recorded, if this app recorded it, so the
+// reference can follow (its saved one, or none of the sample's for live talk).
+const SOURCE_NAMES = {
+  sample: "The sample clip, played by a speaker bot",
+  script: "A typed script, read out by a speaker bot",
+  upload: "Your own audio, played by a speaker bot",
+  live: "People talking in the meeting",
+};
+let botLookup = 0;
+async function lookUpBot() {
+  const id = $("#botId").value.trim();
+  const info = $("#botInfo");
+  const mine = ++botLookup;
+  botRec = null;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    info.hidden = true;
+    return updateSetup();
+  }
+  let rec;
+  try {
+    rec = { botId: id, ...(await api(`/api/recordings/${id}`)) };
+  } catch {
+    rec = { botId: id, known: false };
+  }
+  if (mine !== botLookup) return; // a newer ID was typed meanwhile
+  botRec = rec;
+  info.classList.toggle("ok", rec.known);
+  info.hidden = false;
+  if (rec.speaker) {
+    info.classList.remove("ok");
+    info.textContent = "That's a speaker bot: it only played the audio. Use the recorder bot from the same run.";
+  } else if (rec.known) {
+    const when = rec.recordedAt ? ` on ${new Date(rec.recordedAt).toLocaleString()}` : "";
+    info.textContent = `Recorded with this app${when}. ${SOURCE_NAMES[rec.source]}. ` +
+      (rec.reference ? `Its reference (${rec.reference.words} words) is used for accuracy.` : "No reference was saved with it.");
+  } else {
+    info.textContent = "Not recorded with this app, so it can't tell what was said. For accuracy, pick the sample's transcript if this bot heard the sample clip, or paste your own; otherwise pick None.";
+  }
   updateSetup();
-}));
+}
+$("#botId").addEventListener("input", lookUpBot);
 
 $("#buildSample").addEventListener("click", async (e) => {
   e.target.disabled = true;
@@ -134,7 +198,8 @@ $("#loadBots").addEventListener("click", async (e) => {
     picker.replaceChildren(
       el("option", { value: "" }, `${bots.length} recent bots, pick one…`),
       ...bots.map((b) => el("option", { value: b.bot_id },
-        `${b.created_at ? new Date(b.created_at).toLocaleString() : "?"} · ${b.name ?? "bot"} · ${b.status ?? ""} · ${b.bot_id.slice(0, 8)}…`)),
+        `${b.created_at ? new Date(b.created_at).toLocaleString() : "?"} · ${b.name ?? "bot"} · ${b.status ?? ""}` +
+        `${b.recorded_here ? ` · recorded here (${b.recorded_here === "live" ? "live speech" : b.recorded_here})` : ""} · ${b.bot_id.slice(0, 8)}…`)),
     );
     picker.hidden = false;
   } catch (err) {
@@ -142,7 +207,11 @@ $("#loadBots").addEventListener("click", async (e) => {
   }
   e.target.disabled = false;
 });
-$("#botPicker").addEventListener("change", (e) => { if (e.target.value) $("#botId").value = e.target.value; });
+$("#botPicker").addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  $("#botId").value = e.target.value;
+  lookUpBot();
+});
 
 $("#refFile").addEventListener("change", async (e) => {
   const file = e.target.files[0];

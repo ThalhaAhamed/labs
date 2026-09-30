@@ -6,12 +6,16 @@ const { selectProviders } = require("./src/providers");
 
 const USAGE = `
   npm run fetch-sample                     build sample/clip.wav + sample/reference.txt
-  npm run record    [-- --audio F --reference F | --script text.txt]
+  npm run record    [-- --audio F --reference F | --script text.txt] [--no-reference]
                                            two bots join MEETING_LINK; one plays the clip, one records it
   npm run record    -- --listener-only [--bot-name N --reference F --max-minutes M]
                                            one bot records whatever people say or play in the call
-  npm run benchmark [-- --bot-id ID --reference F --providers a,b --rounds N --poll S]
+  npm run benchmark [-- --bot-id ID --reference F --providers a,b --rounds N --poll S] [--no-reference]
                                            run that one recording through every provider, then score it
+
+  The reference is what was actually said. The sample clip and a --script bring
+  their own; your own --audio needs --reference. A recording remembers its
+  reference, so benchmark uses it unless you pass another or --no-reference.
   npm run score     -- results/<run>       re-score a finished run offline (no API key needed)
   npm run fetch-raw -- results/<run>       add providers' raw responses to an older run (for cost), then re-score
   npm run ui                               the same tool in your browser
@@ -29,8 +33,9 @@ async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-      audio: { type: "string", default: "sample/clip.wav" },
+      audio: { type: "string" },
       reference: { type: "string" },
+      "no-reference": { type: "boolean", default: false },
       "bot-id": { type: "string" },
       append: { type: "string" },
       "live-provider": { type: "string" },
@@ -49,6 +54,7 @@ async function main() {
   switch (command) {
     case "record": {
       if (!process.env.MEETING_LINK) throw new Error("MEETING_LINK is not set in your .env file.");
+      if (values.reference && values["no-reference"]) throw new Error("Pass --reference or --no-reference, not both.");
       if (values["listener-only"]) {
         const { recordListenerOnly } = require("./src/recorder");
         await recordListenerOnly({
@@ -59,10 +65,12 @@ async function main() {
         });
         break;
       }
-      // --script: the speaker bot reads out typed text (this machine's
-      // text-to-speech), and that text is the exact reference.
-      let audioPath = values.audio;
-      let referencePath = values.reference ?? "sample/reference.txt";
+      if (values.script && values.audio) throw new Error("Pass --audio or --script, not both.");
+      // The reference defaults to what the audio came with: the sample clip's
+      // transcript, or a --script's own text. Your own --audio has none unless
+      // you pass --reference; it is never scored against the sample's.
+      let audioPath = values.audio ?? "sample/clip.wav";
+      let referencePath = values.reference ?? (values.audio ? null : "sample/reference.txt");
       let synthetic = null;
       if (values.script) {
         const { synthesize } = require("./src/tts");
@@ -74,7 +82,9 @@ async function main() {
         referencePath = values.reference ?? path.join(dir, "script.txt");
         synthetic = speech.engine;
       }
+      if (values["no-reference"]) referencePath = null;
       if (!fs.existsSync(audioPath)) throw new Error(`${audioPath} not found. Run \`npm run fetch-sample\` first.`);
+      if (referencePath && !fs.existsSync(referencePath)) throw new Error(`${referencePath} not found. Run \`npm run fetch-sample\` first.`);
       const { record } = require("./src/recorder");
       await record({
         meetingLink: process.env.MEETING_LINK,
@@ -91,9 +101,11 @@ async function main() {
       const botId = values["bot-id"] ?? latestRecording();
       if (!botId) throw new Error("No recording yet. Run `npm run record`, or pass --bot-id for an existing bot.");
       const { benchmark } = require("./src/benchmark");
+      if (values.reference && values["no-reference"]) throw new Error("Pass --reference or --no-reference, not both.");
       await benchmark({
         botId,
         referencePath: values.reference,
+        noReference: values["no-reference"],
         providers,
         rounds: parseInt(values.rounds, 10),
         pollSeconds: parseFloat(values.poll),

@@ -153,10 +153,12 @@ function failedBeforeProvider(job) {
   return job.status === "Failed" && /before provider submission/i.test(job.error ?? "");
 }
 
-async function benchmark({ botId, referencePath, providers, rounds, pollSeconds, timeoutMinutes, appendTo }) {
+async function benchmark({ botId, referencePath, noReference = false, providers, rounds, pollSeconds, timeoutMinutes, appendTo }) {
   const recordingPath = path.join("recordings", `${botId}.json`);
   const recording = fs.existsSync(recordingPath) ? JSON.parse(fs.readFileSync(recordingPath, "utf8")) : null;
-  referencePath = referencePath ?? recording?.reference?.path;
+  // Without --reference, use the one saved with the recording, unless
+  // --no-reference asks for turnaround and cost only.
+  referencePath = noReference ? null : referencePath ?? recording?.reference?.path;
   if (referencePath && !fs.existsSync(referencePath)) throw new Error(`Reference ${referencePath} not found.`);
   if (!referencePath) console.log("  No reference transcript: reporting turnaround only (pass --reference to score accuracy).");
 

@@ -34,8 +34,54 @@ const PORT = parseInt(process.env.UI_PORT || "4173", 10);
 const ROOT = __dirname;
 const RESULTS = path.join(DATA, "results");
 const UPLOADS = path.join(DATA, "uploads");
+const RECORDINGS = path.join(DATA, "recordings");
 const SAMPLE_AUDIO = path.join(DATA, "sample", "clip.wav");
 const SAMPLE_REFERENCE = path.join(DATA, "sample", "reference.txt");
+const BOT_ID = /^[0-9a-f-]{36}$/i;
+
+// What this app knows about a bot it recorded (recordings/<bot>.json): what
+// was played, and whether a reference transcript was saved with it. null for
+// a bot recorded elsewhere.
+function recordingInfo(botId) {
+  const file = path.join(RECORDINGS, `${botId}.json`);
+  if (!BOT_ID.test(botId) || !exists(file)) return null;
+  const rec = JSON.parse(fs.readFileSync(file, "utf8"));
+  const clip = rec.clip;
+  const source = !clip ? "live" : clip.synthetic_speech ? "script" : /(^|\/)sample\/clip\.wav$/.test(clip.path ?? "") ? "sample" : "upload";
+  const refFile = rec.reference?.path ? path.resolve(DATA, rec.reference.path) : null;
+  const referenceWords = refFile && exists(refFile) ? fs.readFileSync(refFile, "utf8").split(/\s+/).filter(Boolean).length : null;
+  return {
+    source,
+    recordedAt: rec.played_at ?? rec.joined_at ?? null,
+    clipSeconds: clip?.seconds ?? null,
+    speakerBotId: rec.speaker_bot_id ?? null,
+    reference: referenceWords != null ? { words: referenceWords } : null,
+  };
+}
+
+// Speaker bots this app sent: they only played audio, so there's nothing of
+// theirs to transcribe.
+function speakerBotIds() {
+  if (!exists(RECORDINGS)) return new Set();
+  return new Set(fs.readdirSync(RECORDINGS).filter((f) => f.endsWith(".json")).map((f) => {
+    try { return JSON.parse(fs.readFileSync(path.join(RECORDINGS, f), "utf8")).speaker_bot_id; } catch { return null; }
+  }).filter(Boolean));
+}
+
+// Which references make sense for an audio source. The sample's transcript
+// only fits audio that was the sample clip; a typed script is its own
+// reference; your own audio or live speech needs your own transcript.
+function referenceKinds(mode, audioKind, rec) {
+  if (mode === "two-bot") return { sample: ["sample", "none"], script: ["script", "none"], upload: ["text", "none"] }[audioKind] ?? [];
+  if (mode === "recorder") return ["text", "none"];
+  // An existing recording: its saved reference if it has one, the sample's if
+  // it played the sample (or we can't tell), or your own transcript.
+  const kinds = [];
+  if (rec?.reference) kinds.push("saved");
+  if (!rec || rec.source === "sample") kinds.push("sample");
+  kinds.push("text", "none");
+  return kinds;
+}
 
 // Under Electron, process.execPath is the app itself; ELECTRON_RUN_AS_NODE
 // makes it behave as plain Node for the CLI, so users need no Node install.
@@ -101,18 +147,26 @@ app.get("/api/bots", async (_req, res) => {
       headers: { Authorization: `Token ${keys.MEETSTREAM_API_KEY}` },
       timeout: 20_000,
     });
+    const speakers = speakerBotIds();
     res.json({
-      bots: (data?.bots ?? []).slice(0, 30).map((b) => ({
+      bots: (data?.bots ?? []).filter((b) => !speakers.has(b.bot_id)).slice(0, 30).map((b) => ({
         bot_id: b.bot_id,
         name: b.bot_name ?? null,
         status: b.status ?? b.bot_status ?? null,
         created_at: b.created_at ?? b.createdAt ?? null,
         meeting: b.meeting_link ?? null,
+        recorded_here: recordingInfo(b.bot_id)?.source ?? null,
       })),
     });
   } catch (err) {
     res.status(502).json({ error: err.response?.data?.error ?? err.message });
   }
+});
+
+app.get("/api/recordings/:botId", (req, res) => {
+  if (!BOT_ID.test(req.params.botId)) return res.status(400).json({ error: "Not a bot ID." });
+  const rec = recordingInfo(req.params.botId);
+  res.json({ known: !!rec, speaker: speakerBotIds().has(req.params.botId), ...(rec ?? {}) });
 });
 
 // Builds sample/clip.wav + sample/reference.txt (npm run fetch-sample).
@@ -276,14 +330,25 @@ app.post("/api/jobs", async (req, res) => {
   if (!keys.MEETSTREAM_API_KEY) return res.status(400).json({ error: "Add your MeetStream API key first." });
   if (mode === "two-bot" && !keys.NGROK_AUTHTOKEN) return res.status(400).json({ error: "The speaker bot needs an ngrok authtoken." });
   if (mode !== "existing" && !/^https:\/\/\S+$/.test(spec.meetingLink ?? "")) return res.status(400).json({ error: "Enter the meeting link." });
-  if (mode === "existing" && !/^[0-9a-f-]{36}$/i.test(spec.botId ?? "")) return res.status(400).json({ error: "Enter a bot ID (36 characters)." });
+  if (mode === "existing" && !BOT_ID.test(spec.botId ?? "")) return res.status(400).json({ error: "Enter a bot ID (36 characters)." });
+  if (mode === "existing" && speakerBotIds().has(spec.botId)) return res.status(400).json({ error: "That's a speaker bot: it only played the audio. Use the recorder bot from the same run." });
   const providers = (spec.providers ?? []).filter((p) => PROVIDERS[p]);
   if (!providers.length) return res.status(400).json({ error: "Pick at least one provider." });
+
+  // The reference has to fit the audio (the sample's transcript is useless
+  // against people talking, for example).
+  const audioKind = mode === "two-bot" ? spec.audio?.kind ?? "sample" : null;
+  const refKind = spec.reference?.kind ?? "none";
+  if (!referenceKinds(mode, audioKind, mode === "existing" ? recordingInfo(spec.botId) : null).includes(refKind)) {
+    return res.status(400).json({ error: "That reference doesn't fit this audio. Pick one of the options shown." });
+  }
+  const noReference = refKind === "none";
 
   const job = newJob(spec);
   const dir = path.join(UPLOADS, job.id);
 
-  // Reference: the sample's, pasted text, an uploaded file, or none.
+  // Reference: the sample's, pasted text, the one saved with the recording
+  // ("saved": the CLI reads it from recordings/<bot>.json), or none.
   let referencePath = null;
   if (spec.reference?.kind === "sample") referencePath = SAMPLE_REFERENCE;
   if (spec.reference?.kind === "text" && spec.reference.text?.trim()) {
@@ -328,6 +393,7 @@ app.post("/api/jobs", async (req, res) => {
         else args.push("--audio", rel(audioPath));
       }
       if (referencePath) args.push("--reference", rel(referencePath));
+      else if (noReference && mode === "two-bot") args.push("--no-reference");
       setState(job, { phase: "joining" });
       const code = await runStep(job, args, env);
       botId = job.state.bots.recorder;
@@ -336,6 +402,7 @@ app.post("/api/jobs", async (req, res) => {
     setState(job, { phase: "processing" });
     const args = ["benchmark", "--bot-id", botId, "--providers", providers.join(",")];
     if (referencePath) args.push("--reference", rel(referencePath));
+    else if (noReference) args.push("--no-reference"); // not the one saved with the recording
     const code = await runStep(job, args, env);
     if (code !== 0 || !job.state.runId) throw new Error("The benchmark did not finish; see the log.");
     setState(job, { phase: "done" });

@@ -57,3 +57,38 @@ test("without a reference transcript the run reports turnaround and word counts,
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("noReference ignores the reference saved with the recording; without it, the saved one is used", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.mkdirSync("recordings");
+  fs.writeFileSync("saved.txt", "hello everyone thanks for joining");
+  fs.writeFileSync("recordings/bot-8.json", JSON.stringify({ bot_id: "bot-8", reference: { path: "saved.txt" } }));
+  let n = 0;
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async () => ({ transcript_id: `t-${++n}` });
+  api.listTranscriptions = async () => Array.from({ length: n }, (_, i) => ({ transcript_id: `t-${i + 1}`, provider: "deepgram", status: "Success" }));
+  api.getTranscript = async () => [{ start_time: 0, transcript: "Hello everyone, thanks for joining." }];
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let none, saved;
+    try {
+      none = await benchmark({ botId: "bot-8", noReference: true, providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+      await new Promise((r) => setTimeout(r, 1100)); // run folders are named by the second
+      saved = await benchmark({ botId: "bot-8", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    assert.equal(JSON.parse(fs.readFileSync(path.join(none, "run.json"), "utf8")).reference, null);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(none, "results.json"), "utf8")).providers[0].wer, null);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(saved, "run.json"), "utf8")).reference.source, "saved.txt");
+    assert.equal(JSON.parse(fs.readFileSync(path.join(saved, "results.json"), "utf8")).providers[0].wer, 0);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

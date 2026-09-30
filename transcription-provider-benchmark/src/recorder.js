@@ -104,7 +104,7 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
   const pcm = await decodeToPcm(audioPath, SEND_RATE);
   const clipSeconds = pcm.length / 2 / SEND_RATE;
   console.log(`  Clip       ${audioPath} (${clipSeconds.toFixed(1)}s)`);
-  console.log(`  Reference  ${referencePath}`);
+  console.log(`  Reference  ${referencePath ?? "none (turnaround only, no accuracy)"}`);
   console.log(`  Meeting    ${meetingLink}\n`);
 
   const { server, socket } = await startControlServer(port);
@@ -182,7 +182,9 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
         // Set when the clip is text-to-speech of a typed script (which engine).
         ...(synthetic ? { synthetic_speech: synthetic } : {}),
       },
-      reference: { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) },
+      reference: referencePath
+        ? { path: path.relative(process.cwd(), referencePath).split(path.sep).join("/"), sha256: sha256File(referencePath) }
+        : null,
     };
     fs.mkdirSync("recordings", { recursive: true });
     const out = path.join("recordings", `${bots.listener}.json`);
