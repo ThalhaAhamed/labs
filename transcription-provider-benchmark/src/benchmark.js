@@ -43,6 +43,8 @@ async function submit(botId, provider, round) {
   const t0 = Date.now();
   try {
     const res = await api.transcribe(botId, PROVIDERS[provider]);
+    // How long MeetStream took to accept the request; part of turnaround.
+    job.request_s = +((Date.now() - t0) / 1000).toFixed(2);
     job.transcript_id = res.transcript_id;
     job.status = "Processing";
     job._t0 = t0;

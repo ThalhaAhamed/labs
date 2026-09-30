@@ -4,21 +4,25 @@ This harness runs **one meeting recording through every transcription provider M
 
 Latest run, [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.md): Google Meet, the 191 s sample clip (420 reference words). One recording was sent to all five providers through the same re-transcribe request, and each was timed from its own request.
 
-| Provider | WER | Sub / Del / Ins | Turnaround | Cost | Per hour |
+| Provider | WER | Sub / Del / Ins | Turnaround (finished within) | Cost | Per hour |
 |---|---:|---:|---:|---:|---:|
-| Mia Transcribe | 2.1% | 7 / 2 / 0 | 8.6 s | $0.0071 | $0.10 |
-| JigsawStack | 2.1% | 7 / 2 / 0 | 7.5 s | $0.0019 | ~$0.03* |
-| AssemblyAI | 2.9% | 9 / 2 / 1 | 14.3 s | $0.012 | $0.17 |
-| Deepgram | 3.8% | 12 / 4 / 0 | 8.6 s | $0.018 | $0.26 |
-| Sarvam | 5.0% | 16 / 5 / 0 | 20.1 s | $0.033 | $0.47 |
+| Mia Transcribe ◆ | 2.1% | 7 / 2 / 0 | 2.5–8.6 s | $0.0071 | $0.10 |
+| JigsawStack ◆ | 2.1% | 7 / 2 / 0 | 1.0–7.5 s ‡ | $0.0019 | ~$0.03* |
+| AssemblyAI | 2.9% | 9 / 2 / 1 | 8.6–14.3 s | $0.012 | $0.17 |
+| Deepgram | 3.8% | 12 / 4 / 0 | 2.5–8.6 s | $0.018 | $0.26 |
+| Sarvam | 5.0% | 16 / 5 / 0 | 14.3–20.1 s | $0.033 | $0.47 |
+
+◆ **One engine, two names.** Mia Transcribe runs on JigsawStack. In this run the two returned exactly the same transcript, in JigsawStack's response format. Count them as one result, not two that agree.
+‡ Re-run on its own after its first attempt failed (see below), so its turnaround isn't comparable with the others'.
 
 Cost is transcription only, for the 4.29 min of billed audio, at each provider's published rate on 2026-09-28 (see [Cost](METHODOLOGY.md#cost)). \*JigsawStack bills by processing tokens, so its per-hour cost depends on the audio.
 
 How to read this:
 
-- **The sample is small.** One word is 0.24 points of WER, so treat gaps under about 2 points as ties.
-- **Turnaround is one sample per provider**, polled every 5 s.
-- **JigsawStack was re-run.** Its first attempt failed inside MeetStream before reaching JigsawStack ("Retranscription failed before provider submission"). It was re-run on the same recording a few minutes later, so it wasn't under the same load as the others. `results.md` records both attempts.
+- **The sample is small.** One word is 0.24 points of WER, so treat gaps under about 2 points as ties. On this clip, a spelling difference (`recognising` / `recognizing`) and a compound word (`michael angelo` / `michelangelo`) alone move some providers by up to 0.7 points.
+- **Turnaround is a window, not a number.** It is MeetStream's end-to-end time from the re-transcribe request (the request itself, queueing, the provider's processing), not the provider's own API latency. This run polled every 5 s, so each job is only known to have finished between two polls. Mia Transcribe and Deepgram both finished within 2.5–8.6 s and can't be told apart; AssemblyAI finished within 8.6–14.3 s and Sarvam within 14.3–20.1 s. New runs poll every 1 s.
+- **One run.** One recording of one clip gives one sample per provider, with no measure of spread. Treat the numbers as indicative.
+- **JigsawStack was re-run.** Its first attempt failed inside MeetStream before reaching JigsawStack ("Retranscription failed before provider submission"). It was re-run on the same recording about 90 seconds later, on its own. `results.md` records both attempts.
 - **The independent scorer agrees.** `scripts/score_jiwer.py` gives the same ranking, with every provider within 0.3 points.
 - **Every provider's raw transcript is in the results folder.** To re-score it yourself, see [Reproducing a result](METHODOLOGY.md#reproducing-a-result).
 
@@ -155,7 +159,7 @@ The table is printed and saved to `results/<run>/results.md`.
 ```bash
 npm run benchmark -- --bot-id <id>            # any bot, not just the last one recorded
 npm run benchmark -- --providers meetstream,deepgram
-npm run benchmark -- --poll 2                 # finer turnaround resolution
+npm run benchmark -- --poll 0.5               # finer turnaround windows (default 1 s)
 npm run benchmark -- --reference my-ref.txt   # verbatim transcript of what was said
 npm run benchmark -- --no-reference           # turnaround and cost only, even if the recording saved a reference
 npm run record -- --audio call.m4a --reference call.txt   # your own audio (any format ffmpeg reads); without --reference it isn't scored

@@ -24,6 +24,21 @@ const pct = (x) => (x == null ? "–" : `${(x * 100).toFixed(1)}%`);
 const secs = (x) => (x == null ? "–" : `${x.toFixed(1)}s`);
 const usd = (x) => (x == null ? "–" : `$${x < 0.01 ? x.toFixed(4) : x.toFixed(3)}`);
 const perHour = (x) => (x == null ? "–" : `$${x.toFixed(2)}`);
+// "2.6–8.6s": finished within this window; "‡" when timed separately.
+const finishedWindow = (r) => r.turnaround_median_s == null ? "–"
+  : `${r.turnaround_lower_s == null ? "≤" : `${r.turnaround_lower_s.toFixed(1)}–`}${secs(r.turnaround_median_s)}${r.turnaround_comparable === false ? " ‡" : ""}`;
+
+function timingNotes(results) {
+  const L = [];
+  const req = results.providers.map((r) => r.transcribe_request_s).filter((x) => typeof x === "number");
+  L.push(`Turnaround is the window in which each job finished, measured from sending MeetStream's transcribe request: after the last poll that still saw it processing, and by the first poll that saw it done (polled every ${results.poll_seconds}s). ` +
+    `It is MeetStream's end-to-end turnaround (the request itself${req.length ? `, ${Math.min(...req).toFixed(1)}–${Math.max(...req).toFixed(1)}s here` : ""}, queueing, fetching the recording, the provider's processing), not the provider's own API latency. ` +
+    "Providers whose windows overlap can't be ranked on speed.");
+  if (results.providers.some((r) => r.turnaround_comparable === false)) {
+    L.push("", "‡ Submitted on its own (resubmitted after a failure, or added to the run later), not alongside the others, so its turnaround isn't comparable with theirs.");
+  }
+  return L;
+}
 
 function score(runDir) {
   const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
@@ -51,6 +66,7 @@ function score(runDir) {
   }
 
   const rows = [];
+  const hypotheses = new Map(); // provider -> first scored normalised transcript
   for (const [provider, jobs] of byProvider) {
     const scored = [];
     for (const job of jobs.filter((j) => j.status === "Success" && j.transcript_file)) {
@@ -66,6 +82,7 @@ function score(runDir) {
         continue;
       }
       const hypothesis = normalize(text);
+      if (!hypotheses.has(provider)) hypotheses.set(provider, hypothesis);
       fs.writeFileSync(path.join(runDir, job.transcript_file.replace(/\.json$/, ".normalized.txt")), hypothesis + "\n");
       // Score only what falls inside the clip; talk before or after it in
       // the room is not the provider's error. The untrimmed figure is kept.
@@ -84,6 +101,22 @@ function score(runDir) {
     }
 
     const turnarounds = scored.map((s) => s.job.turnaround_s).filter((x) => typeof x === "number");
+    // Turnaround is only known to a window: the job finished after the last
+    // poll that still saw it processing (lower) and by the first that saw it
+    // done (upper). Windows that overlap can't be ranked.
+    const lowers = scored.map((s) => s.job.turnaround_lower_bound_s).filter((x) => typeof x === "number");
+    const requests = scored.map((s) => s.job.request_s).filter((x) => typeof x === "number");
+    // Submitted on its own (a resubmission, or --append later): not timed
+    // under the same conditions as the others, so not comparable on speed.
+    const separate = scored.some((s) => s.job.appended || s.job.attempt) && turnarounds.length > 0;
+    const timing = {
+      turnaround_median_s: median(turnarounds),
+      turnaround_lower_s: median(lowers),
+      turnaround_min_s: turnarounds.length ? Math.min(...turnarounds) : null,
+      turnaround_max_s: turnarounds.length ? Math.max(...turnarounds) : null,
+      transcribe_request_s: median(requests),
+      turnaround_comparable: turnarounds.length > 0 && !separate,
+    };
     if (!reference) {
       rows.push({
         provider,
@@ -94,9 +127,7 @@ function score(runDir) {
         notes: [...(replaced.get(provider) ?? []), ...jobs.filter((j) => j.note).map((j) => j.note)],
         wer: null,
         words: scored[0].words,
-        turnaround_median_s: median(turnarounds),
-        turnaround_min_s: turnarounds.length ? Math.min(...turnarounds) : null,
-        turnaround_max_s: turnarounds.length ? Math.max(...turnarounds) : null,
+        ...timing,
         errors: [],
         config: run.providers[provider],
       });
@@ -123,9 +154,7 @@ function score(runDir) {
       outside_clip_words: scored.reduce((n, s) => n + s.window.before + s.window.after, 0),
       clip_found: scored.every((s) => s.window.anchored),
       wer_untrimmed: scored.reduce((n, s) => n + s.full.substitutions + s.full.deletions + s.full.insertions, 0) / refWords,
-      turnaround_median_s: median(turnarounds),
-      turnaround_min_s: turnarounds.length ? Math.min(...turnarounds) : null,
-      turnaround_max_s: turnarounds.length ? Math.max(...turnarounds) : null,
+      ...timing,
       real_time_factor: clipSeconds && turnarounds.length ? median(turnarounds) / clipSeconds : null,
       // A live run is timed from the bots leaving the call instead (see recorder.js).
       post_call_turnaround_s: scored.map((s) => s.job.turnaround_after_leaving_s).find((x) => typeof x === "number") ?? null,
@@ -134,6 +163,18 @@ function score(runDir) {
       errors: first.alignment.filter((a) => a.op !== "="),
       config: run.providers[provider],
     });
+  }
+
+  // Two providers returning the very same transcript are almost certainly one
+  // engine behind two names (Mia Transcribe runs on JigsawStack): say so
+  // beside both, so a reader doesn't count them as two results agreeing.
+  const ranRows = rows.filter((r) => r.ran && hypotheses.get(r.provider));
+  for (const r of ranRows) {
+    const twins = ranRows.filter((o) => o !== r && hypotheses.get(o.provider) === hypotheses.get(r.provider));
+    if (twins.length) {
+      r.same_output_as = twins.map((o) => o.provider);
+      r.notes.push(`returned exactly the same transcript as ${twins.map((o) => displayName(o.provider)).join(", ")}, so almost certainly the same engine: count them as one result, not two that agree`);
+    }
   }
 
   // Cost: from each provider's raw response (what it actually billed on).
@@ -189,16 +230,16 @@ function renderMarkdown(run, results) {
   L.push(`- Method: see [METHODOLOGY.md](../../METHODOLOGY.md). Re-score offline with \`npm run score -- ${path.posix.join("results", run.run_id)}\``, "");
 
   if (!run.reference) {
-    L.push("| Provider | Words transcribed | Turnaround | Range | Cost | Per hour |");
+    L.push("| Provider | Words transcribed | Turnaround (finished within) | Range over rounds | Cost | Per hour |");
     L.push("|---|---:|---:|---:|---:|---:|");
     for (const r of results.providers) {
       if (!r.ran) { L.push(`| ${displayName(r.provider)} | not run | | | | |`); continue; }
       const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
-      L.push(`| ${displayName(r.provider)} | ${r.words} | ${secs(r.turnaround_median_s)} | ${range} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
+      L.push(`| ${displayName(r.provider)} | ${r.words} | ${finishedWindow(r)} | ${range} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
     }
-    L.push("", `Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing. Each provider's transcript is in \`transcripts/\`.`);
+    L.push("", ...timingNotes(results), "", "Each provider's transcript is in `transcripts/`.");
   } else {
-  L.push("| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (median) | Range | × real time | Cost | Per hour |");
+  L.push("| Provider | WER | Sub | Del | Ins | Outside clip | Turnaround (finished within) | Range over rounds | × real time | Cost | Per hour |");
   L.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const r of results.providers) {
     if (!r.ran) {
@@ -208,7 +249,7 @@ function renderMarkdown(run, results) {
     const range = r.turnaround_min_s == null ? "–" : `${secs(r.turnaround_min_s)}–${secs(r.turnaround_max_s)}`;
     const turnaround = r.turnaround_median_s == null && r.post_call_turnaround_s != null
       ? `${secs(r.post_call_turnaround_s)} after call †`
-      : secs(r.turnaround_median_s);
+      : finishedWindow(r);
     const rtf = r.real_time_factor == null ? "–" : `${r.real_time_factor.toFixed(2)}×`;
     const outside = r.clip_found ? `${r.outside_clip_words} word${r.outside_clip_words === 1 ? "" : "s"} (untrimmed WER ${pct(r.wer_untrimmed)})` : "clip not found, nothing cut";
     L.push(`| ${displayName(r.provider)} | ${pct(r.wer)} | ${r.substitutions} | ${r.deletions} | ${r.insertions} | ${outside} | ${turnaround} | ${range} | ${rtf} | ${usd(r.cost_usd)} | ${perHour(r.cost_per_hour_usd)} |`);
@@ -218,7 +259,7 @@ function renderMarkdown(run, results) {
   if (results.providers.some((r) => r.turnaround_median_s == null && r.post_call_turnaround_s != null)) {
     L.push("† Ran live on the recording bot because MeetStream's re-transcribe endpoint would not run it, so it is timed from the bots leaving the call. That includes MeetStream's post-call media processing, which the other turnarounds (timed from a re-transcribe request on an already-processed recording) do not.", "");
   }
-  L.push(`WER is pooled over all successful rounds. Turnaround is time from the transcribe request to the first poll that saw the job finished, so it overstates the true figure by up to ${results.poll_seconds}s, and it includes MeetStream's queueing, not only the provider's own processing.`);
+  L.push("WER is pooled over all successful rounds.", "", ...timingNotes(results));
 
   }
 

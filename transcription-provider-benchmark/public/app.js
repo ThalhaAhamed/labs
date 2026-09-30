@@ -597,26 +597,42 @@ async function showRun(id) {
 
   // Metrics, lower is better. Words transcribed (no reference) is shown but
   // never called best: without knowing what was said, more words may just be
-  // more mistakes. Turnaround is only known to one poll interval, so
-  // providers within one poll of the fastest are tied for fastest.
+  // more mistakes. Turnaround is only known to a window (finished after the
+  // last poll that saw it processing, by the first that saw it done), so
+  // every provider whose window overlaps the fastest one's is tied for
+  // fastest. A provider submitted on its own isn't comparable on speed.
   const poll = data.poll_seconds ?? 5;
+  const comparable = (p) => p.turnaround_comparable !== false;
+  const turnaround = {
+    key: "turnaround_median_s", label: "Turnaround", sub: `finished within, polled every ${poll} s`,
+    fmt: secs,
+    show: (p) => p.turnaround_median_s == null ? "–"
+      : `${p.turnaround_lower_s != null ? `${p.turnaround_lower_s.toFixed(1)}–` : "≤ "}${secs(p.turnaround_median_s)}${comparable(p) ? "" : " ‡"}`,
+    eligible: comparable,
+    // Overlaps the fastest window: can't be told apart from it.
+    tiedWith: (p, best) => (p.turnaround_lower_s ?? p.turnaround_median_s - poll) < best,
+  };
   const metrics = [
     ...(scored ? [{ key: "wer", label: "WER", sub: "lower is better", fmt: pct }] : [{ key: "words", label: "Words", sub: "not a quality score", fmt: (v) => String(v), neutral: true }]),
-    { key: "turnaround_median_s", label: "Turnaround", sub: `lower is better, ±${poll} s`, fmt: secs, tie: poll },
+    turnaround,
     { key: "cost_usd", label: "Cost", sub: "this recording", fmt: usd },
   ];
   const bestOf = (m) => {
-    const vals = ran.map((p) => p[m.key]).filter((v) => v != null);
+    const vals = ran.filter((p) => !m.eligible || m.eligible(p)).map((p) => p[m.key]).filter((v) => v != null);
     return m.neutral || !vals.length ? null : Math.min(...vals);
   };
   const maxOf = (m) => Math.max(0, ...ran.map((p) => p[m.key] ?? 0));
   for (const m of metrics) { m.best = bestOf(m); m.max = maxOf(m); }
-  const isBestFor = (m, v) => v != null && m.best != null && (m.tie ? v - m.best <= m.tie + 1e-9 : v === m.best);
+  const isBestFor = (m, p) => {
+    const v = p[m.key];
+    if (v == null || m.best == null || (m.eligible && !m.eligible(p))) return false;
+    return m.tiedWith ? m.tiedWith(p, m.best) : v === m.best;
+  };
 
   const who = (m) => {
     if (m.best == null) return "not measured";
-    const names = ran.filter((p) => isBestFor(m, p[m.key])).map((p) => nameOf(p.provider));
-    return names.length > 1 && m.tie ? `${names.join(", ")} (tied within the ${m.tie} s poll)` : names.join(", ");
+    const names = ran.filter((p) => isBestFor(m, p)).map((p) => nameOf(p.provider));
+    return names.length > 1 && m.tiedWith ? `${names.join(", ")} (can't be told apart)` : names.join(", ");
   };
   $("#summaryCards").replaceChildren(...metrics.filter((m) => !m.neutral).map((m) =>
     el("div", { class: "stat" },
@@ -640,11 +656,11 @@ async function showRun(id) {
       key: m.key, label: m.label, sub: m.sub,
       cell: (p) => {
         const v = p[m.key];
-        const isBest = isBestFor(m, v);
+        const isBest = isBestFor(m, p);
         const width = v == null || !m.max ? 0 : Math.max(2, (v / m.max) * 100);
         const td = el("td", { class: isBest ? "best" : "" },
           el("div", { class: "metric" },
-            el("span", { class: "num" }, isBest ? el("span", { class: "badge" }, "BEST") : null, isBest ? " " : null, m.fmt(v)),
+            el("span", { class: "num" }, isBest ? el("span", { class: "badge" }, "BEST") : null, isBest ? " " : null, m.show ? m.show(p) : m.fmt(v)),
             el("div", { class: "track", "aria-hidden": "true" }, el("span", { class: `fill ${isBest ? "best" : ""}`, style: `width:${width}%` }))));
         td.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), [[m.label, m.fmt(v)], ...(m.best != null && v != null && !isBest ? [["vs best", `${(v / m.best).toFixed(1)}×`]] : [])]));
         td.addEventListener("pointerleave", hideTip);
@@ -681,7 +697,7 @@ async function showRun(id) {
   const costNote = ran.some((p) => p.cost_basis)
     ? `Cost is transcription only, at each provider's published rate on ${results.prices_as_of}; MeetStream's bot fee is the same whichever provider you pick, so it's left out. `
     : "Cost needs each provider's raw response; older runs can get it with npm run fetch-raw. ";
-  $("#tableNotes").textContent = `${scored ? "WER counts only words inside the clip. " : ""}Turnaround runs from the request to the first poll that saw the result (every ${data.poll_seconds ?? 5} s), through MeetStream. ${costNote}`;
+  $("#tableNotes").textContent = `${scored ? "WER counts only words inside the clip. " : ""}Turnaround is MeetStream's end-to-end time from the transcribe request, not the provider's own latency, and is only known to a window: the job finished after the last poll that saw it processing and by the first that saw it done (every ${poll} s). Overlapping windows can't be ranked.${ran.some((p) => !comparable(p)) ? " ‡ Submitted on its own, not alongside the others, so not comparable on speed." : ""} ${costNote}`;
 
   // Trade-offs: both axes lower-is-better, so lower-left wins.
   const xCost = { label: "Cost per hour", get: (p) => p.cost_per_hour_usd, fmt: perHour, tick: (v) => `$${v.toFixed(2)}` };

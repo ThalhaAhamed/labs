@@ -6,13 +6,15 @@ This harness compares the post-call transcription providers MeetStream offers. M
 
 | Provider key | Engine and config sent | Needs dashboard setup |
 |---|---|---|
-| `meetstream` (shown as **Mia Transcribe**) | MeetStream engine, `language: "auto"` | No |
+| `meetstream` (shown as **Mia Transcribe**) | MeetStream's engine, which runs on JigsawStack, `language: "auto"` | No |
 | `deepgram` | Deepgram `nova-3`, `language: "en"` | Deepgram key under Integrations |
 | `assemblyai` | AssemblyAI `universal-2`, `language_code: "en_us"` | AssemblyAI key under Integrations |
 | `sarvam` | Sarvam `saaras:v3`, `mode: "transcribe"`, `language_code: "en-IN"` | Sarvam key under Integrations |
 | `jigsawstack` | JigsawStack, `language: "en"` | JigsawStack key under Integrations |
 
 The exact request bodies live in [src/providers.js](src/providers.js), and every run copies them into `run.json`. The rule behind them: use each provider's documented model, set English wherever the provider documents an English code, and leave every other option at the provider's default. No custom vocabulary, keyterm prompts or other tuning is applied for the sample clip.
+
+**Mia Transcribe and JigsawStack are one engine.** Mia Transcribe runs on JigsawStack. In the published run they returned exactly the same transcript, in JigsawStack's response format, so the table has four independent results, not five. `results.md` flags any two providers whose transcripts are identical, so this shows up in every run.
 
 Two choices deserve comment:
 
@@ -94,11 +96,23 @@ Speaker labels are ignored: this measures which words were heard, not who said t
 
 ## Turnaround time
 
-Turnaround is the time from the `transcribe` request to the first poll of `GET /bots/{id}/transcriptions` that reports the job finished.
+What is measured, from the harness's clock:
 
-- It **overstates** the true figure by up to one poll interval (default 5 s). `run.json` keeps a lower bound, taken from the previous poll, for each job.
-- It measures **turnaround through MeetStream**: queueing, fetching the recording, the provider's own processing and storing the result. It is what a MeetStream customer waits, not the provider's raw API latency.
-- All providers are submitted at the same moment so they run under the same load. Each gets one sample per recording (see above), so treat a single run's turnaround as indicative. A gap of a few seconds between providers is within the noise, and the app marks every provider within one poll interval of the fastest as tied for fastest.
+| Time | Event |
+|---|---|
+| T0 | the harness sends `POST /bots/{id}/transcribe` |
+| T1 | MeetStream answers the request (`request_s` in `run.json`: about 1–2.5 s in practice) |
+| … | MeetStream queues the job, fetches the recording, the provider transcribes it |
+| T2 | the job finishes: **not observable**; only the polls around it are |
+| T3 | the first poll of `GET /bots/{id}/transcriptions` that reports it finished |
+
+Fetching the transcript, normalising and scoring happen after T3 and are not counted.
+
+- **Turnaround is a window, not a number.** The job finished after the last poll that still saw it processing and by T3. Both ends are measured from T0: `turnaround_lower_bound_s` and `turnaround_s` in `run.json`. The table shows the window, e.g. `2.5–8.6s`.
+- **Providers whose windows overlap can't be ranked on speed.** With a 5 s poll, and a first poll only after every request has returned, anything that finishes within about 8.6 s looks the same. That's why the published run (5 s poll) can't separate Mia Transcribe from Deepgram. The default is now a 1 s poll (`--poll`).
+- It measures **turnaround through MeetStream**: the request itself, queueing, fetching the recording, the provider's own processing and storing the result. It is what a MeetStream customer waits, not the provider's API latency, which this harness can't see.
+- All providers are submitted at the same moment so they run under the same load. A provider submitted on its own (a resubmission after a failure, or `--append`) is marked ‡ and left out of "fastest", because it didn't run under the same conditions.
+- Each provider gets one sample per recording (see above), so treat a single run's turnaround as indicative. For a speed claim, record several times and compare the windows' median and spread.
 - **Re-running a recording isn't a new test.** MeetStream runs each provider once per recording, so a second benchmark of the same bot reuses the first run's transcripts, untimed. The app warns before you do it. An earlier transcript is only reused if MeetStream reports the same model and settings (or doesn't report them); one made with a different model, say `nova-2` for `nova-3`, is not scored under this provider's name.
 - **Without a reference, words transcribed is not a score.** A provider that returns more words may be hallucinating or picking up background talk, so the app shows the count but doesn't call anyone best on it.
 - **Failed attempts are retried once.** A job that fails inside MeetStream before reaching the provider ("Retranscription failed before provider submission") tells you nothing about that provider, so it is resubmitted once. You can also re-run a provider into an existing run with `--append`. Either way, `run.json` keeps every attempt, and `results.md` notes the retry and that the provider wasn't timed alongside the others.
@@ -130,7 +144,7 @@ Details:
 - **Small sample.** One word is 0.24 points of WER on 420 reference words. Treat gaps under about 2 points as a tie unless they hold across several clips.
 - **One platform per recording.** Google Meet, Zoom and Teams process audio differently. Record once per platform if that matters to you.
 - **Default configs.** Providers can often do better with vocabulary hints or tuned settings. The table shows out-of-the-box behaviour through MeetStream.
-- **Not measured:** price, diarization accuracy, timestamp accuracy, and live (streaming) latency.
+- **Not measured:** diarization accuracy, timestamp accuracy, the provider's own API latency, and live (streaming) latency.
 
 ## Publishing a result
 

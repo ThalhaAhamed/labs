@@ -14,7 +14,9 @@
       "rounds": 1,
       "succeeded": 1,
       "failed_rounds": [],
-      "notes": [],
+      "notes": [
+        "returned exactly the same transcript as JigsawStack: the same engine, not an independent result"
+      ],
       "wer": 0.02142857142857143,
       "wer_per_round": [
         0.0214
@@ -27,8 +29,11 @@
       "clip_found": true,
       "wer_untrimmed": 0.02142857142857143,
       "turnaround_median_s": 8.64,
+      "turnaround_lower_s": 2.55,
       "turnaround_min_s": 8.64,
       "turnaround_max_s": 8.64,
+      "transcribe_request_s": null,
+      "turnaround_comparable": true,
       "real_time_factor": 0.045132812704050985,
       "post_call_turnaround_s": null,
       "errors": [
@@ -84,6 +89,9 @@
           "translate": false
         }
       },
+      "same_output_as": [
+        "jigsawstack"
+      ],
       "cost_usd": 0.007144297222222222,
       "cost_per_hour_usd": 0.1,
       "cost_basis": "$0.10/hr (MeetStream transcription add-on)",
@@ -97,7 +105,8 @@
       "failed_rounds": [],
       "notes": [
         "an earlier attempt failed (Retranscription failed before provider submission) and was replaced",
-        "submitted on its own after the rest of this run (2026-09-28T18:08:58.993Z), not alongside the other providers"
+        "submitted on its own after the rest of this run (2026-09-28T18:08:58.993Z), not alongside the other providers",
+        "returned exactly the same transcript as Mia Transcribe: the same engine, not an independent result"
       ],
       "wer": 0.02142857142857143,
       "wer_per_round": [
@@ -111,8 +120,11 @@
       "clip_found": true,
       "wer_untrimmed": 0.02142857142857143,
       "turnaround_median_s": 7.46,
+      "turnaround_lower_s": 0.99,
       "turnaround_min_s": 7.46,
       "turnaround_max_s": 7.46,
+      "transcribe_request_s": null,
+      "turnaround_comparable": false,
       "real_time_factor": 0.03896884059863661,
       "post_call_turnaround_s": null,
       "errors": [
@@ -168,6 +180,9 @@
           "translate": false
         }
       },
+      "same_output_as": [
+        "meetstream"
+      ],
       "cost_usd": 0.0019493099999999999,
       "cost_per_hour_usd": 0.027284839073277948,
       "cost_basis": "$0.99 per 1M tokens (from the response's own usage)",
@@ -192,8 +207,11 @@
       "clip_found": true,
       "wer_untrimmed": 0.02857142857142857,
       "turnaround_median_s": 14.25,
+      "turnaround_lower_s": 8.63,
       "turnaround_min_s": 14.25,
       "turnaround_max_s": 14.25,
+      "transcribe_request_s": null,
+      "turnaround_comparable": true,
       "real_time_factor": 0.07443779873063965,
       "post_call_turnaround_s": null,
       "errors": [
@@ -290,8 +308,11 @@
       "clip_found": true,
       "wer_untrimmed": 0.0380952380952381,
       "turnaround_median_s": 8.63,
+      "turnaround_lower_s": 2.55,
       "turnaround_min_s": 8.63,
       "turnaround_max_s": 8.63,
+      "transcribe_request_s": null,
+      "turnaround_comparable": true,
       "real_time_factor": 0.04508057565231019,
       "post_call_turnaround_s": null,
       "errors": [
@@ -406,8 +427,11 @@
       "clip_found": true,
       "wer_untrimmed": 0.05,
       "turnaround_median_s": 20.05,
+      "turnaround_lower_s": 14.25,
       "turnaround_min_s": 20.05,
       "turnaround_max_s": 20.05,
+      "transcribe_request_s": null,
+      "turnaround_comparable": true,
       "real_time_factor": 0.1047352887403035,
       "post_call_turnaround_s": null,
       "errors": [

@@ -203,6 +203,80 @@ test("a failed or rate-limited provider is marked not run with its reason; the o
   }
 });
 
+test("turnaround is reported as the window it's known to, and a separately submitted provider isn't comparable", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  // The request itself takes 30 ms; both providers are done by the first poll.
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async (_bot, provider) => {
+    await new Promise((r) => setTimeout(r, 30));
+    return { transcript_id: `t-${Object.keys(provider)[0]}` };
+  };
+  api.listTranscriptions = async () => ["deepgram", "assemblyai"].map((p) => ({ transcript_id: `t-${p}`, provider: p, status: "Success" }));
+  api.getTranscript = async (_id, opts) => (opts?.raw ? {} : [{ start_time: 0, transcript: OUTPUTS.deepgram }]);
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-13", referencePath: "reference.txt", providers: ["deepgram", "assemblyai"], rounds: 1, pollSeconds: 0.2, timeoutMinutes: 0.05 });
+      // Then assemblyai again on its own, as if re-run later with --append.
+      await benchmark({ botId: "bot-13", referencePath: "reference.txt", providers: ["assemblyai"], rounds: 1, pollSeconds: 0.2, timeoutMinutes: 0.05, appendTo: runDir });
+    } finally {
+      console.log = log;
+    }
+    const run = JSON.parse(fs.readFileSync(path.join(runDir, "run.json"), "utf8"));
+    for (const j of run.jobs) assert.ok(j.request_s >= 0.02, "the request's own time is recorded");
+    const by = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8")).providers.map((r) => [r.provider, r]));
+    // Known only to a window: after the requests returned, by the first poll.
+    assert.ok(by.deepgram.turnaround_lower_s >= 0.02 && by.deepgram.turnaround_lower_s < by.deepgram.turnaround_median_s);
+    assert.ok(by.deepgram.turnaround_median_s >= 0.2);
+    assert.equal(by.deepgram.turnaround_comparable, true);
+    assert.equal(by.assemblyai.turnaround_comparable, false);
+    const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
+    assert.match(md, /\| AssemblyAI \|.*\d–\d+\.\ds ‡ \|/);
+    assert.match(md, /not the provider's own API latency/);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("two providers with the very same transcript are flagged as one engine", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async (_bot, provider) => ({ transcript_id: `t-${Object.keys(provider)[0]}` });
+  api.listTranscriptions = async () => ["meetstream", "jigsawstack", "deepgram"].map((p) => ({ transcript_id: `t-${p}`, provider: p, status: "Success" }));
+  api.getTranscript = async (id, opts) => (opts?.raw ? {} : [{ start_time: 0, transcript: id === "t-deepgram" ? OUTPUTS.deepgram : OUTPUTS.meetstream }]);
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-14", referencePath: "reference.txt", providers: ["meetstream", "jigsawstack", "deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const by = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8")).providers.map((r) => [r.provider, r]));
+    assert.deepEqual(by.meetstream.same_output_as, ["jigsawstack"]);
+    assert.deepEqual(by.jigsawstack.same_output_as, ["meetstream"]);
+    assert.equal(by.deepgram.same_output_as, undefined);
+    assert.match(fs.readFileSync(path.join(runDir, "results.md"), "utf8"), /Mia Transcribe\*\*: returned exactly the same transcript as JigsawStack/);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a transcript in a shape we can't read is a failure, not a provider that heard nothing", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
   const cwd = process.cwd();

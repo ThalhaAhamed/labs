@@ -47,7 +47,9 @@ async function main() {
       "max-minutes": { type: "string", default: "30" },
       providers: { type: "string" },
       rounds: { type: "string", default: "1" },
-      poll: { type: "string", default: "5" },
+      // Turnaround is only known to one poll interval, so poll often: 1 s
+      // (5 s before 2026-09-30, which made most providers indistinguishable).
+      poll: { type: "string", default: "1" },
       timeout: { type: "string", default: "30" },
     },
   });
