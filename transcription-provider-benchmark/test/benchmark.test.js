@@ -157,6 +157,52 @@ test("a bot that already spent its one meetstream run is scored from that run's 
   }
 });
 
+test("a failed or rate-limited provider is marked not run with its reason; the others are still scored", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  fs.writeFileSync("reference.txt", REFERENCE + "\n");
+  api.getBotStatus = async () => "Done";
+  api.transcribe = async (_bot, provider) => {
+    const name = Object.keys(provider)[0];
+    if (name === "assemblyai") {
+      const err = new Error("Request failed");
+      err.response = { status: 429, data: { error: "Too many requests" } };
+      throw err;
+    }
+    return { transcript_id: `t-${name}` };
+  };
+  api.listTranscriptions = async () => [
+    { transcript_id: "t-deepgram", provider: "deepgram", status: "Success" },
+    { transcript_id: "t-sarvam", provider: "sarvam", status: "Failed", error: "provider returned 500" },
+  ];
+  api.getTranscript = async (_id, opts) => (opts?.raw ? {} : [{ start_time: 0, transcript: OUTPUTS.deepgram }]);
+
+  try {
+    const { benchmark } = require("../src/benchmark");
+    const log = console.log;
+    console.log = () => {};
+    let runDir;
+    try {
+      runDir = await benchmark({ botId: "bot-11", referencePath: "reference.txt", providers: ["deepgram", "sarvam", "assemblyai"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    } finally {
+      console.log = log;
+    }
+    const by = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(runDir, "results.json"), "utf8")).providers.map((r) => [r.provider, r]));
+    assert.equal(by.deepgram.ran, true);
+    assert.ok(by.deepgram.wer > 0 && by.deepgram.wer < 0.2);
+    assert.deepEqual([by.sarvam.ran, by.sarvam.wer, by.sarvam.reason], [false, undefined, "provider returned 500"]);
+    assert.equal(by.assemblyai.ran, false);
+    assert.match(by.assemblyai.reason, /^HTTP 429/);
+    const md = fs.readFileSync(path.join(runDir, "results.md"), "utf8");
+    assert.match(md, /^\| Sarvam \| not run \|/m);
+    assert.match(md, /^\| AssemblyAI \| not run \|/m);
+  } finally {
+    process.chdir(cwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("an earlier transcript made with a different model isn't scored under this provider's name", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-"));
   const cwd = process.cwd();

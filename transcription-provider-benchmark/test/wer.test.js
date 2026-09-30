@@ -18,6 +18,18 @@ test("normalize handles the forms providers actually emit", () => {
   assert.equal(normalize(""), "");
 });
 
+test("wer matches hand-worked answers", () => {
+  const W = (r, h) => wer(normalize(r), normalize(h)).wer;
+  assert.equal(W("the cat sat", "The cat sat."), 0);             // perfect, punctuation and case ignored
+  assert.equal(W("the cat sat", "the bat sat"), 1 / 3);          // 1 substitution
+  assert.equal(W("the cat sat", "the sat"), 1 / 3);              // 1 deletion
+  assert.equal(W("the cat sat", "the big cat sat"), 1 / 3);      // 1 insertion
+  assert.equal(W("the cat sat", "dogs run fast"), 1);            // all wrong
+  assert.equal(W("the cat sat", ""), 1);                         // empty hypothesis: all deleted
+  assert.equal(W("a  b\n\tc", " a b c "), 0);                     // whitespace
+  assert.equal(W("Hello, WORLD! It's me.", "hello world it's me"), 0);
+});
+
 test("Indic scripts keep their vowel signs, so words stay whole and different words stay different", () => {
   assert.equal(normalize("வணக்கம் எல்லோரும்!"), "வணக்கம் எல்லோரும்");
   assert.equal(normalize("नमस्ते, दोस्तों।"), "नमस्ते दोस्तों");
