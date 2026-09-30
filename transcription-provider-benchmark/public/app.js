@@ -637,7 +637,7 @@ async function showRun(id) {
   $("#summaryCards").replaceChildren(...metrics.filter((m) => !m.neutral).map((m) =>
     el("div", { class: "stat" },
       el("div", { class: "label" }, m.key === "wer" ? "Most accurate" : m.key === "cost_usd" ? "Cheapest" : "Fastest"),
-      el("div", { class: "value" }, m.best == null ? "–" : m.fmt(m.best)),
+      el("div", { class: "value" }, m.best == null ? "–" : `${m.tiedWith ? "≤ " : ""}${m.fmt(m.best)}`),
       el("div", { class: "who" }, who(m)))));
 
   // Rank by the headline metric (accuracy, or speed when there's no reference).
