@@ -76,14 +76,14 @@ A provider you haven't connected still appears in the results, marked "not run" 
 
 ## Desktop app (Windows, macOS, Linux)
 
-The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Download it from the **[Transcriber Benchmark 1.0.1 release](https://github.com/ThalhaAhamed/labs/releases/tag/transcriber-benchmark-v1.0.1)**, [connect the providers](#before-your-first-run-connect-the-providers) in MeetStream if you haven't yet, and open **Transcriber Benchmark**.
+The same UI is also packaged as a desktop app, for people who shouldn't need Node, npm or a terminal. Download it from the **[Transcriber Benchmark 1.0.2 release](https://github.com/ThalhaAhamed/labs/releases/tag/transcriber-benchmark-v1.0.2)**, [connect the providers](#before-your-first-run-connect-the-providers) in MeetStream if you haven't yet, and open **Transcriber Benchmark**.
 
 | OS | Installer |
 |---|---|
-| Windows 10/11 (x64) | `Transcriber-Benchmark-Setup-1.0.1.exe` |
-| macOS, Apple silicon | `Transcriber-Benchmark-1.0.1-arm64.dmg` |
-| macOS, Intel | `Transcriber-Benchmark-1.0.1-x64.dmg` |
-| Linux (x64) | `Transcriber-Benchmark-1.0.1-x86_64.AppImage` (make it executable and run it), or `Transcriber-Benchmark-1.0.1-amd64.deb` (`sudo apt install ./<file>.deb`) |
+| Windows 10/11 (x64) | `Transcriber-Benchmark-Setup-1.0.2.exe` |
+| macOS, Apple silicon | `Transcriber-Benchmark-1.0.2-arm64.dmg` |
+| macOS, Intel | `Transcriber-Benchmark-1.0.2-x64.dmg` |
+| Linux (x64) | `Transcriber-Benchmark-1.0.2-x86_64.AppImage` (make it executable and run it), or `Transcriber-Benchmark-1.0.2-amd64.deb` (`sudo apt install ./<file>.deb`) |
 
 The installers aren't code-signed yet, so the first launch asks you to confirm:
 - **Windows:** SmartScreen shows "More info → Run anyway".
@@ -105,7 +105,7 @@ npm run dist:linux     # on Linux   → dist/*.AppImage and *.deb
 
 - **Linux from Windows or macOS:** `build/linux-in-docker.sh` builds and smoke-tests the Linux installers inside a Docker container (instructions at the top of the file).
 - **All of them at once:** the GitHub Actions workflow `.github/workflows/transcription-benchmark-desktop.yml` builds Windows, macOS on both chips, and Linux on their own runners. Run it from the Actions tab, or push a `transcriber-benchmark-v*` tag. The Linux job also smoke-tests the packaged app.
-- **The icon** (a video call whose speech becomes a transcript and a chart, on an orange tile) is built by `build/make-icon.py` from `build/icon-source.png`, the supplied design cut out along its rounded corners, as PNG, ICO and ICNS. Every size uses the same picture.
+- **The icon** (a video call whose speech becomes a transcript and a chart, on an orange tile; final design) is built by `build/make-icon.py` from `build/icon-source.png`, the supplied design cut out along its rounded corners, as PNG, ICO and ICNS. Every size uses the same picture.
 
 ## Run it in your browser
 
