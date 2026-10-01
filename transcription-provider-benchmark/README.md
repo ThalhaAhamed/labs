@@ -105,7 +105,7 @@ npm run dist:linux     # on Linux   → dist/*.AppImage and *.deb
 
 - **Linux from Windows or macOS:** `build/linux-in-docker.sh` builds and smoke-tests the Linux installers inside a Docker container (instructions at the top of the file).
 - **All of them at once:** the GitHub Actions workflow `.github/workflows/transcription-benchmark-desktop.yml` builds Windows, macOS on both chips, and Linux on their own runners. Run it from the Actions tab, or push a `transcriber-benchmark-v*` tag. The Linux job also smoke-tests the packaged app.
-- **The icon** (a video call whose speech becomes a transcript and a chart, on an orange tile; final design) is built by `build/make-icon.py` from `build/icon-source.png`, the supplied design cut out along its rounded corners, as PNG, ICO and ICNS. Every size uses the same picture.
+- **The icon** (a video call whose speech becomes a transcript and a chart, on an orange tile) is built by `build/make-icon.py` from `build/icon-source.png`, the supplied design cut out along its rounded corners, as PNG, ICO and ICNS. Every size uses the same picture.
 
 ## Run it in your browser
 
