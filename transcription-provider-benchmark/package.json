@@ -1,6 +1,6 @@
 {
   "name": "meetstream-transcription-provider-benchmark",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Runs one meeting recording through every MeetStream transcription provider and tabulates word error rate and turnaround time.",
   "main": "desktop/main.js",
   "scripts": {
