@@ -86,7 +86,7 @@ acc("Accuracy, the sample clip (4 recordings)", summary.accuracy_sample, sample)
 acc("Accuracy, every scored run", summary.accuracy_all, scored);
 
 L.push("", "### Accuracy by run", "");
-head(["Provider", ...scored.map((r, i) => `${runs.indexOf(r) + 1}. ${r.test}`)]);
+head(["Provider", ...scored.map((r) => `${runs.indexOf(r) + 1}. ${r.test}`)]);
 for (const p of order(summary.accuracy_all)) L.push(`| ${displayName(p)} | ${scored.map((r) => pct(row(r, p)?.wer)).join(" | ")} |`);
 
 L.push("", `### Turnaround, ${timed.length} runs polled every second`, "");

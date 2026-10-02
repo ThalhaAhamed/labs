@@ -21,3 +21,6 @@ build-info.json
 
 # Rebuilt byte-identical by reports/*/inputs/build-clip-b.js
 reports/*/inputs/clip-b.wav
+
+# Scratch data while rendering a report PDF
+reports/*/.pdf-profile/

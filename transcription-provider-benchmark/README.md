@@ -2,7 +2,7 @@
 
 This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
 
-**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md).** Seven recordings on Google Meet, each sent to all five providers: the sample clip recorded four times, a typed script read by text-to-speech, a second clip, and a person reading aloud. 2,247 reference words in total, and every provider succeeded on every run.
+**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md)** ([PDF](reports/2026-10-02/REPORT.pdf)). Seven recordings on Google Meet, each sent to all five providers: the sample clip recorded four times, a typed script read by text-to-speech, a second clip, and a person reading aloud. 2,247 reference words in total, and every provider succeeded on every run.
 
 | Provider | WER (pooled, 7 runs) | Range over runs | Turnaround (median, 6 runs) | Slowest run | Per hour |
 |---|---:|---:|---:|---:|---:|
@@ -212,6 +212,7 @@ results/<run>/
 | `scripts/fetch-sample.js` | Builds the pinned LibriSpeech clip |
 | `scripts/score_jiwer.py` | Independent re-score with jiwer and the Whisper normaliser |
 | `scripts/summarize.js` | A multi-run report's tables, computed from the run folders it lists (`node scripts/summarize.js reports/<date>`) |
+| `scripts/report-pdf.js` | Renders a report's `REPORT.md` to `REPORT.pdf` (`npm run report-pdf -- reports/<date>`) |
 | `reports/` | Published reports: the narrative, the list of runs, the generated tables and every test input |
 
 `npm test` runs the scorer (with hand-worked WER cases), the transcript parser, the `sendaudio` streaming path, full benchmarks against a stubbed API (including failed, rate-limited, unreadable and duplicate providers), the scorer's refusal to leave a results folder, and the local server's endpoints. It needs no key and no network. `npm run lint` runs ESLint. The desktop workflow runs both before building any installer.

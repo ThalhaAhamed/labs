@@ -9,6 +9,7 @@
     "benchmark": "node index.js benchmark",
     "score": "node index.js score",
     "fetch-raw": "node index.js fetch-raw",
+    "report-pdf": "electron scripts/report-pdf.js",
     "ui": "node server.js",
     "test": "node --test",
     "lint": "eslint .",
@@ -46,7 +47,8 @@
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.5",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "marked": "^14.1.4"
   },
   "productName": "Transcriber Benchmark",
   "author": {
