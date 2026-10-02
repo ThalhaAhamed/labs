@@ -2,26 +2,27 @@
 
 This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
 
-**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md)** ([PDF](reports/2026-10-02/REPORT.pdf)). Seven recordings on Google Meet, each sent to all five providers: the sample clip recorded four times, a typed script read by text-to-speech, a second clip, and a person reading aloud. 2,247 reference words in total, and every provider succeeded on every run.
+**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md)** ([PDF](reports/2026-10-02/REPORT.pdf)). Nine recordings on Google Meet, Microsoft Teams and Zoom, each sent to all five providers: the sample clip recorded six times (four on Meet, one on Teams, one on Zoom), a typed script read by text-to-speech, a second clip, and a person reading aloud. 3,087 reference words in total, and every provider succeeded on every run. The report also covers live (streaming) transcription with Deepgram and AssemblyAI.
 
-| Provider | WER (pooled, 7 runs) | Range over runs | Turnaround (median, 6 runs) | Slowest run | Per hour |
+| Provider | WER (pooled, 9 runs) | Range over runs | Turnaround (median, 8 runs) | Slowest run | Per hour |
 |---|---:|---:|---:|---:|---:|
-| Mia Transcribe ◆ | 2.0% | 0.0–2.9% | 7.1 s | 22.6 s | $0.10 |
-| JigsawStack ◆ | 2.1% | 0.0–3.7% | 5.9 s | 11.3 s | ~$0.03* |
-| AssemblyAI | 2.2% | 0.0–3.7% | 12.0 s | 14.7 s | $0.17 |
-| Deepgram | 3.2% | 1.8–5.9% | 5.7 s | 11.8 s | $0.26 |
-| Sarvam | 4.0% | 0.0–7.4% | 20.7 s | 31.1 s | $0.47 |
+| Mia Transcribe ◆ | 1.8% | 0.0–2.9% | 7.4 s | 22.6 s | $0.10 |
+| JigsawStack ◆ | 1.9% | 0.0–3.7% | 6.0 s | 12.5 s | ~$0.03* |
+| AssemblyAI | 2.2% | 0.0–3.7% | 10.7 s | 14.7 s | $0.17 |
+| Deepgram | 2.9% | 1.8–5.9% | 5.7 s | 28.3 s | $0.26 |
+| Sarvam | 3.8% | 0.0–7.4% | 18.6 s | 31.1 s | $0.47 |
 
-◆ **One engine, two names.** Mia Transcribe runs on JigsawStack. They returned the same transcript in 6 of 7 runs, and differed on just 2 rare names in the seventh. Count them as one result.
+◆ **One engine, two names.** Mia Transcribe runs on JigsawStack. They returned the same transcript in 8 of 9 runs, and differed on just 2 rare names in the other. Count them as one result.
 \*JigsawStack bills by processing tokens, so its per-hour cost depends on the audio.
 
 How to read this:
 
-- **Accuracy:** Mia Transcribe/JigsawStack and AssemblyAI are tied at the top: gaps under 0.8 points are sampling noise on 2,247 words. Deepgram (+1.2 points) and Sarvam (+2.0) are measurably behind. The same order holds on the four sample-clip recordings alone.
-- **Speed varies a lot from run to run, mostly because of MeetStream.** In one run the same engine took 22.6 s as Mia Transcribe and 5.0 s as JigsawStack. Only the medians and the consistent gaps mean anything: Deepgram, JigsawStack and Mia Transcribe are fastest, AssemblyAI is in the middle, and Sarvam was slowest in every run. Turnaround is MeetStream's end-to-end time from the re-transcribe request, known to within 1 s, not the provider's own API latency.
+- **Accuracy:** Mia Transcribe/JigsawStack and AssemblyAI are tied at the top: gaps under 0.7 points are sampling noise on 3,087 words. Deepgram (+1.1 points) and Sarvam (+2.0) are measurably behind. The same order holds on the sample clip on each platform: Meet, Teams and Zoom.
+- **Speed varies a lot from run to run, mostly because of MeetStream.** In one run the same engine took 22.6 s as Mia Transcribe and 5.0 s as JigsawStack. Only the medians and the consistent gaps mean anything: Deepgram, JigsawStack and Mia Transcribe are fastest, AssemblyAI is in the middle, and Sarvam was slowest in 7 of 8 runs. Turnaround is MeetStream's end-to-end time from the re-transcribe request, known to within 1 s, not the provider's own API latency.
+- **Live (streaming):** on the sample clip, AssemblyAI live scored 1.2% and Deepgram Nova-3 live 3.6%, with final text a median 0.3–0.4 s after each phrase.
 - **One recording isn't enough.** The same clip recorded four times moved a provider's WER by up to 1.5 points.
 - **Scored on words, not formatting.** Spelling conventions, contractions, compound spacing, "$4.2 million" and "November 14" aren't counted as errors (see [METHODOLOGY.md](METHODOLOGY.md#accuracy-word-error-rate)). The independent scorer (`scripts/score_jiwer.py`, jiwer with Whisper's normaliser) puts the providers in the same order.
-- **Limits:** one LibriSpeech speaker on the clips, one synthetic voice, one person reading; read speech, not meetings; Google Meet only; LibriSpeech may be in providers' training data. Each provider uses its documented English setting (`auto` for Mia Transcribe, `en-IN` for Sarvam).
+- **Limits:** one LibriSpeech speaker on the clips, one synthetic voice, one person reading; read speech, not meetings; one recording each on Teams and Zoom; LibriSpeech may be in providers' training data. Each provider uses its documented English setting (`auto` for Mia Transcribe, `en-IN` for Sarvam).
 - **Written by an interested party.** MeetStream wrote this harness and sells one of the engines it measures. Every number can be re-derived from the published run folders without trusting it.
 
 The earlier single-run result (Test 1, 28 Sep) is run 1 of the report, and its folder is [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.md).

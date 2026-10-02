@@ -40,3 +40,15 @@
 | jigsawstack | 1.7% | 1 | 0 | 1 |
 | deepgram | 3.3% | 2 | 1 | 1 |
 | sarvam | 3.3% | 3 | 0 | 1 |
+== 2026-10-02T19-50-03Z
+| meetstream | 1.9% | 6 | 2 | 0 |
+| jigsawstack | 1.9% | 6 | 2 | 0 |
+| assemblyai | 2.1% | 7 | 2 | 0 |
+| deepgram | 2.4% | 7 | 3 | 0 |
+| sarvam | 4.2% | 12 | 6 | 0 |
+== 2026-10-02T20-42-29Z
+| meetstream | 1.2% | 4 | 1 | 0 |
+| jigsawstack | 1.2% | 4 | 1 | 0 |
+| assemblyai | 2.1% | 6 | 3 | 0 |
+| deepgram | 2.4% | 7 | 3 | 0 |
+| sarvam | 4.0% | 12 | 4 | 1 |

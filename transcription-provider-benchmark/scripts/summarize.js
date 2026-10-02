@@ -71,8 +71,8 @@ const order = (m) => [...providers].sort((a, b) => (m[a].wer ?? 9) - (m[b].wer ?
 const head = (cols, left = 1) => { L.push(`| ${cols.join(" | ")} |`, `|${cols.map((_, i) => (i >= left ? "---:" : "---")).join("|")}|`); };
 
 L.push("### Runs", "");
-head(["#", "Test", "Run", "Reference words", "Poll", "Harness"], 3);
-runs.forEach((r, i) => L.push(`| ${i + 1} | ${r.label} | \`${r.id}\` | ${r.results.reference_words ?? "–"} | ${r.results.poll_seconds} s | ${r.run.harness_version?.commit ? `\`${r.run.harness_version.commit.slice(0, 7)}\`` : "not recorded"} |`));
+head(["#", "Test", "Platform", "Run", "Reference words", "Poll", "Harness"], 4);
+runs.forEach((r, i) => L.push(`| ${i + 1} | ${r.label} | ${r.platform ?? "–"} | \`${r.id}\` | ${r.results.reference_words ?? "–"} | ${r.results.poll_seconds} s | ${r.run.harness_version?.commit ? `\`${r.run.harness_version.commit.slice(0, 7)}\`` : "not recorded"} |`));
 
 const acc = (title, m, subset) => {
   const words = Math.max(...Object.values(m).map((x) => x.words));
@@ -82,8 +82,19 @@ const acc = (title, m, subset) => {
   for (const p of order(m)) L.push(`| ${displayName(p)} | ${pct(m[p].wer)} | ${pct(m[p].min)}–${pct(m[p].max)} | ${m[p].runs} | ${m[p].words} |`);
   L.push("", `Pooled over ${subset.length} runs and ${words} reference words: gaps under ${(band(best, words) * 100).toFixed(1)} points are within sampling noise (95%, treating words as independent).`);
 };
-acc("Accuracy, the sample clip (4 recordings)", summary.accuracy_sample, sample);
+acc(`Accuracy, the sample clip (${sample.length} recordings)`, summary.accuracy_sample, sample);
 acc("Accuracy, every scored run", summary.accuracy_all, scored);
+
+const platforms = [...new Set(sample.map((r) => r.platform).filter(Boolean))];
+if (platforms.length > 1) {
+  const byPlatform = Object.fromEntries(platforms.map((pl) => [pl, pooled(sample.filter((r) => r.platform === pl))]));
+  summary.accuracy_sample_by_platform = byPlatform;
+  L.push("", "### The sample clip on each platform", "");
+  head(["Provider", ...platforms.map((pl) => `${pl} (${sample.filter((r) => r.platform === pl).length})`)]);
+  for (const p of order(summary.accuracy_sample)) L.push(`| ${displayName(p)} | ${platforms.map((pl) => pct(byPlatform[pl][p].wer)).join(" | ")} |`);
+  L.push("", "Pooled WER per platform; the number of recordings is in brackets. One recording on a platform is a single sample: its spread is the same as between recordings on one platform (see Accuracy by run).");
+  fs.writeFileSync(path.join(dir, "summary.json"), JSON.stringify(summary, null, 2) + "\n");
+}
 
 L.push("", "### Accuracy by run", "");
 head(["Provider", ...scored.map((r) => `${runs.indexOf(r) + 1}. ${r.test}`)]);
