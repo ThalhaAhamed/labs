@@ -81,11 +81,17 @@ function startControlServer(port) {
   return new Promise((resolve) => server.listen(port, () => resolve({ server, wss, socket })));
 }
 
-async function play(ws, botId, pcm) {
+async function play(ws, botId, pcm, { stopped = () => null, out = process.stdout } = {}) {
   const bytesPerChunk = SEND_RATE * 2 * CHUNK_SECONDS;
   const started = Date.now();
   const total = Math.ceil(pcm.length / bytesPerChunk);
   for (let i = 0; i < total; i++) {
+    // Stop at once if the recorder has left: playing on records nothing.
+    const why = stopped();
+    if (why) {
+      out.write("\n");
+      throw new Error(`stopped playing at ${i * CHUNK_SECONDS}s: ${why}`);
+    }
     const chunk = pcm.subarray(i * bytesPerChunk, (i + 1) * bytesPerChunk);
     ws.send(JSON.stringify({
       command: "sendaudio",
@@ -96,13 +102,13 @@ async function play(ws, botId, pcm) {
       channels: 1,
       endianness: "little",
     }));
-    if (i % 10 === 0) process.stdout.write(`\r   playing  ${i * CHUNK_SECONDS}s / ${total * CHUNK_SECONDS}s`);
+    if (i % 10 === 0) out.write(`\r   playing  ${i * CHUNK_SECONDS}s / ${total * CHUNK_SECONDS}s`);
     // Pace against the wall clock rather than sleeping a fixed amount per
     // chunk, so small delays don't accumulate into drift.
     const nextAt = started + ((i + 1) * CHUNK_SECONDS - LEAD_SECONDS) * 1000;
     await sleep(Math.max(0, nextAt - Date.now()));
   }
-  process.stdout.write(`\r   playing  done (${(pcm.length / 2 / SEND_RATE).toFixed(1)}s)          \n`);
+  out.write(`\r   playing  done (${(pcm.length / 2 / SEND_RATE).toFixed(1)}s)          \n`);
 }
 
 const MIN_CLIP_SECONDS = 3;
@@ -177,11 +183,28 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
     await Promise.all([waitInCall(bots.listener, "listener"), waitInCall(bots.speaker, "speaker")]);
     const ws = await withTimeout(socket, 60_000, "speaker bot never opened its control WebSocket");
 
-    await sleep(SETTLE_SECONDS * 1000);
-    const playedAt = new Date().toISOString();
-    await play(ws, bots.speaker, pcm);
-    console.log(`   waiting ${TAIL_SECONDS}s for the bot to finish playing its queue`);
-    await sleep(TAIL_SECONDS * 1000);
+    // Watch the recorder while the clip plays and through the tail: it can
+    // leave mid-clip (on Zoom, when the host doesn't grant recording
+    // permission within a minute), and then nothing is being recorded.
+    let recorderGone = null;
+    let playedAt;
+    const watch = setInterval(async () => {
+      const status = await api.getBotStatus(bots.listener).catch(() => null);
+      if (status && !IN_CALL.has(status) && !recorderGone) {
+        const why = await api.getFailureReason(bots.listener).catch(() => null);
+        recorderGone = `the recorder bot left the call (${status}${why ? `: ${why}` : ""})`;
+      }
+    }, 5000);
+    try {
+      await sleep(SETTLE_SECONDS * 1000);
+      playedAt = new Date().toISOString();
+      await play(ws, bots.speaker, pcm, { stopped: () => recorderGone });
+      console.log(`   waiting ${TAIL_SECONDS}s for the bot to finish playing its queue`);
+      await sleep(TAIL_SECONDS * 1000);
+      if (recorderGone) throw new Error(`no full recording: ${recorderGone}`);
+    } finally {
+      clearInterval(watch);
+    }
 
     await cleanup();
     const leftAt = Date.now();

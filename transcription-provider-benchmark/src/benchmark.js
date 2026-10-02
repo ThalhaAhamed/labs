@@ -33,6 +33,12 @@ async function waitForRecording(botId) {
       }
       return status;
     }
+    // A stopped bot may have nothing to process (e.g. it left before
+    // recording). Ask once per status change rather than wait 30 minutes.
+    if (status !== last && status === "Stopped") {
+      const problem = await api.getRecordingProblem(botId).catch(() => null);
+      if (problem) throw new Error(`bot ${botId} has no recording to transcribe: ${problem}`);
+    }
     if (status !== last) console.log(`  Bot is ${status}, waiting for the recording to finish processing...`);
     last = status;
     if (Date.now() > deadline) throw new Error(`bot ${botId} still ${status} after 30 minutes`);

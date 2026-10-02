@@ -262,6 +262,23 @@ const oneProvider = (text = OUTPUTS.deepgram, raw = {}) => {
   api.getTranscript = async (_id, opts) => (opts?.raw ? raw : [{ start_time: 0, transcript: text }]);
 };
 
+test("a stopped bot with no captured audio fails at once, with MeetStream's reason", async () => {
+  await inTemp(async () => {
+    fs.writeFileSync("reference.txt", REFERENCE + "\n");
+    oneProvider();
+    api.getBotStatus = async () => "Stopped";
+    api.getRecordingProblem = async () => "No usable mixed audio was captured";
+    let submitted = false;
+    api.transcribe = async () => { submitted = true; return { transcript_id: "t" }; };
+    const { benchmark } = require("../src/benchmark");
+    const started = Date.now();
+    await assert.rejects(benchmark({ botId: "bot-20", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 }),
+      /no recording to transcribe: No usable mixed audio was captured/);
+    assert.ok(Date.now() - started < 5000, "doesn't wait for the 30-minute deadline");
+    assert.equal(submitted, false);
+  });
+});
+
 test("a reference with no words is refused before anything is submitted", async () => {
   await inTemp(async () => {
     fs.writeFileSync("reference.txt", "Um.\n");

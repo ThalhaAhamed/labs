@@ -48,6 +48,20 @@ async function getFailureReason(botId) {
   return steps.length ? steps[steps.length - 1][1].message : null;
 }
 
+/**
+ * GET /bots/{id}: why a finished bot has no usable recording, or null. Covers
+ * MeetStream reporting no captured audio ("No usable mixed audio was
+ * captured") and a bot that stopped on a failure ("Failed: Recording
+ * permission timeout", Zoom's host never granted recording).
+ */
+async function getRecordingProblem(botId) {
+  const { data } = await client().get(`/bots/${botId}`);
+  const d = data?.bot_details ?? {};
+  if (/no audio/i.test(String(d.AudioStatus ?? ""))) return d.AudioMessage || d.AudioStatus;
+  const failed = Object.values(d.StatusTimeline ?? {}).find((s) => s?.status && /^(Failed|Error)\b/i.test(s.message ?? ""));
+  return failed ? failed.message : null;
+}
+
 async function removeBot(botId) {
   const { data } = await client().get(`/bots/${botId}/remove_bot`);
   return data;
@@ -90,6 +104,7 @@ module.exports = {
   createBot,
   getBotStatus,
   getFailureReason,
+  getRecordingProblem,
   removeBot,
   transcribe,
   listTranscriptions,

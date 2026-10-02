@@ -74,3 +74,17 @@ test("a bot that errors stops the wait at once, with MeetStream's reason", async
     console.log = log;
   }
 });
+
+test("playback stops as soon as the recorder is reported gone", async () => {
+  const { play } = require("../src/recorder");
+  const sent = [];
+  const ws = { send: (m) => sent.push(m) };
+  const pcm = Buffer.alloc(SEND_RATE * 2 * 30); // 30 s of silence
+  let calls = 0;
+  const out = { write: () => true };
+  {
+    await assert.rejects(play(ws, "bot-1", pcm, { out, stopped: () => (++calls > 2 ? "the recorder bot left the call (Stopped: Failed: Recording permission timeout)" : null) }),
+      /stopped playing at 2s: .*Recording permission timeout/);
+  }
+  assert.equal(sent.length, 2, "nothing more is sent once the recorder has gone");
+});
