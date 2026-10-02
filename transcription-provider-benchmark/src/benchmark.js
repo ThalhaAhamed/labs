@@ -35,9 +35,11 @@ async function waitForRecording(botId) {
     }
     // A stopped bot may have nothing to process (e.g. it left before
     // recording). Ask once per status change rather than wait 30 minutes.
-    if (status !== last && status === "Stopped") {
-      const problem = await api.getRecordingProblem(botId).catch(() => null);
-      if (problem) throw new Error(`bot ${botId} has no recording to transcribe: ${problem}`);
+    // Zoom bots stay "Stopped" after processing, so check the details.
+    if (status === "Stopped") {
+      const state = await api.getRecordingState(botId).catch(() => ({}));
+      if (state.problem) throw new Error(`bot ${botId} has no recording to transcribe: ${state.problem}`);
+      if (state.ready) return "Done";
     }
     if (status !== last) console.log(`  Bot is ${status}, waiting for the recording to finish processing...`);
     last = status;

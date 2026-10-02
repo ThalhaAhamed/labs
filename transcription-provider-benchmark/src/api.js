@@ -55,11 +55,27 @@ async function getFailureReason(botId) {
  * permission timeout", Zoom's host never granted recording).
  */
 async function getRecordingProblem(botId) {
+  return (await getRecordingState(botId)).problem;
+}
+
+/**
+ * GET /bots/{id}: whether a stopped bot's recording is ready to transcribe.
+ * Zoom bots keep the status "Stopped" after post-call processing has finished
+ * (Meet and Teams bots move on to "Done"), so readiness is read from the
+ * details: audio captured, and "Done" in the status timeline.
+ */
+async function getRecordingState(botId) {
   const { data } = await client().get(`/bots/${botId}`);
   const d = data?.bot_details ?? {};
-  if (/no audio/i.test(String(d.AudioStatus ?? ""))) return d.AudioMessage || d.AudioStatus;
-  const failed = Object.values(d.StatusTimeline ?? {}).find((s) => s?.status && /^(Failed|Error)\b/i.test(s.message ?? ""));
-  return failed ? failed.message : null;
+  const timeline = d.StatusTimeline ?? {};
+  let problem = null;
+  if (/no audio/i.test(String(d.AudioStatus ?? ""))) problem = d.AudioMessage || d.AudioStatus;
+  else {
+    const failed = Object.values(timeline).find((s) => s?.status && /^(Failed|Error)\b/i.test(s.message ?? ""));
+    if (failed) problem = failed.message;
+  }
+  const ready = !problem && /success/i.test(String(d.AudioStatus ?? "")) && Boolean(timeline.Done?.status);
+  return { ready, problem };
 }
 
 async function removeBot(botId) {
@@ -105,6 +121,7 @@ module.exports = {
   getBotStatus,
   getFailureReason,
   getRecordingProblem,
+  getRecordingState,
   removeBot,
   transcribe,
   listTranscriptions,

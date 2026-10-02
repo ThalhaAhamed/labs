@@ -267,7 +267,7 @@ test("a stopped bot with no captured audio fails at once, with MeetStream's reas
     fs.writeFileSync("reference.txt", REFERENCE + "\n");
     oneProvider();
     api.getBotStatus = async () => "Stopped";
-    api.getRecordingProblem = async () => "No usable mixed audio was captured";
+    api.getRecordingState = async () => ({ ready: false, problem: "No usable mixed audio was captured" });
     let submitted = false;
     api.transcribe = async () => { submitted = true; return { transcript_id: "t" }; };
     const { benchmark } = require("../src/benchmark");
@@ -276,6 +276,20 @@ test("a stopped bot with no captured audio fails at once, with MeetStream's reas
       /no recording to transcribe: No usable mixed audio was captured/);
     assert.ok(Date.now() - started < 5000, "doesn't wait for the 30-minute deadline");
     assert.equal(submitted, false);
+  });
+});
+
+test("a Zoom bot that stays Stopped after processing is treated as ready", async () => {
+  await inTemp(async () => {
+    fs.writeFileSync("reference.txt", REFERENCE + "\n");
+    oneProvider();
+    api.getBotStatus = async () => "Stopped";
+    api.getRecordingState = async () => ({ ready: true, problem: null });
+    const { benchmark } = require("../src/benchmark");
+    const dir = await benchmark({ botId: "bot-21", referencePath: "reference.txt", providers: ["deepgram"], rounds: 1, pollSeconds: 0.01, timeoutMinutes: 0.005 });
+    const run = JSON.parse(fs.readFileSync(path.join(dir, "run.json"), "utf8"));
+    assert.equal(run.bot.status_when_benchmarked, "Done");
+    assert.equal(run.jobs[0].status, "Success");
   });
 });
 
