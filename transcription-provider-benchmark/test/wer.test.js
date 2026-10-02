@@ -43,6 +43,15 @@ test("spelling conventions, contractions and compound spacing are formatting, no
   assert.equal(W("it is", "it's").wer > 0, true);
 });
 
+test("money with a scale word, and dates, are read the way people say them", () => {
+  const W = (r, h) => wer(normalize(r), normalize(h)).wer;
+  assert.equal(W("four point two million dollars", "$4.2 million"), 0);
+  assert.equal(W("about three billion dollars", "about $3 billion"), 0);
+  assert.equal(W("ships on november fourteenth", "ships on November 14"), 0);
+  assert.equal(W("by may first", "by May 1st"), 0);
+  assert.equal(normalize("$5"), "five dollars");                         // unchanged
+});
+
 test("a joined compound counts once as correct and keeps the reference word count", () => {
   const r = wer(normalize("up guards and at em"), normalize("upguards and at em"));
   assert.equal(r.referenceWords, 5);

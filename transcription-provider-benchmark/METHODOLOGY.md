@@ -70,7 +70,7 @@ WER = (substitutions + deletions + insertions) ÷ reference words, from a minimu
 Before alignment, the same normalisation is applied to both the reference and each provider's output ([src/wer.js](src/wer.js)), so formatting isn't counted as misrecognition:
 
 1. Unicode NFKC, lower-case, curly apostrophes made straight.
-2. `&` becomes "and", `$5` becomes "5 dollars", `12%` becomes "12 percent", and thousands separators are removed.
+2. `&` becomes "and", `$5` becomes "5 dollars" and `$4.2 million` "4.2 million dollars" (the order it's said in), `12%` becomes "12 percent", a day after a month becomes an ordinal (`November 14` → November fourteenth), and thousands separators are removed.
 3. Hyphens and dashes become spaces. All other punctuation is removed, except apostrophes inside words (`quilter's`) and decimal points. Letters and combining marks in any script are kept: in Tamil, Hindi and other Indic scripts the vowel signs are combining marks, and dropping them would split words apart and make different words look identical.
 4. Spoken abbreviations are expanded: `mr` mister, `mrs` missus, `ms` miss, `dr` doctor, `st` saint, `vs` versus.
 5. Digits become words the way they are usually spoken:

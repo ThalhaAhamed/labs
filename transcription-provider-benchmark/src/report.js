@@ -12,7 +12,7 @@ const { displayName } = require("./providers");
 const { textSha256 } = require("./audio");
 
 // Bumped whenever a normalisation rule changes, so a run says which rules scored it.
-const NORMALIZER = "src/wer.js normalize() v2, 2026-09-30: + British/American spelling, contractions, compound spacing (see METHODOLOGY.md)";
+const NORMALIZER = "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)";
 
 /**
  * How far apart two WERs must be before the gap means anything on this many
