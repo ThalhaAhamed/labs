@@ -4,4 +4,4 @@ Our team meets every Tuesday at ten thirty to review the support queue. Last wee
 
 Next sprint, we will focus on the search feature and the new billing page. Ananya is leading the design work, and Rahul will handle the database changes. If everything goes well, we should be ready for testing by the twenty first.
 
-That is the end of the test. Thank you.
+This is the end of the test. Thank you.

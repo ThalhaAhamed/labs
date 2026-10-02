@@ -2,7 +2,7 @@
   "run_id": "2026-10-02T19-25-58Z",
   "bot_id": "7b801a7a-7225-4cb7-92eb-cc8ae5f122c2",
   "reference_words": 126,
-  "wer_tie_band": 0.03086320986074024,
+  "wer_tie_band": 0.02191140660407265,
   "billed_audio_seconds": 72.277374,
   "prices_as_of": "2026-09-28",
   "clip_seconds": null,
@@ -18,17 +18,17 @@
       "notes": [
         "returned exactly the same transcript as AssemblyAI, JigsawStack, so almost certainly the same engine: count them as one result, not two that agree"
       ],
-      "wer": 0.015873015873015872,
+      "wer": 0.007936507936507936,
       "wer_per_round": [
-        0.0159
+        0.0079
       ],
-      "substitutions": 1,
+      "substitutions": 0,
       "deletions": 1,
       "insertions": 0,
       "reference_words": 126,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.015873015873015872,
+      "wer_untrimmed": 0.007936507936507936,
       "turnaround_median_s": 6.57,
       "turnaround_lower_s": 4.98,
       "turnaround_min_s": 6.57,
@@ -42,11 +42,6 @@
           "op": "D",
           "ref": "and",
           "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "that",
-          "hyp": "this"
         }
       ],
       "config": {
@@ -75,17 +70,17 @@
       "notes": [
         "returned exactly the same transcript as Mia Transcribe, JigsawStack, so almost certainly the same engine: count them as one result, not two that agree"
       ],
-      "wer": 0.015873015873015872,
+      "wer": 0.007936507936507936,
       "wer_per_round": [
-        0.0159
+        0.0079
       ],
-      "substitutions": 1,
+      "substitutions": 0,
       "deletions": 1,
       "insertions": 0,
       "reference_words": 126,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.015873015873015872,
+      "wer_untrimmed": 0.007936507936507936,
       "turnaround_median_s": 10.22,
       "turnaround_lower_s": 8.58,
       "turnaround_min_s": 10.22,
@@ -99,11 +94,6 @@
           "op": "D",
           "ref": "and",
           "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "that",
-          "hyp": "this"
         }
       ],
       "config": {
@@ -134,17 +124,17 @@
       "notes": [
         "returned exactly the same transcript as Mia Transcribe, AssemblyAI, so almost certainly the same engine: count them as one result, not two that agree"
       ],
-      "wer": 0.015873015873015872,
+      "wer": 0.007936507936507936,
       "wer_per_round": [
-        0.0159
+        0.0079
       ],
-      "substitutions": 1,
+      "substitutions": 0,
       "deletions": 1,
       "insertions": 0,
       "reference_words": 126,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.015873015873015872,
+      "wer_untrimmed": 0.007936507936507936,
       "turnaround_median_s": 6.56,
       "turnaround_lower_s": 4.97,
       "turnaround_min_s": 6.56,
@@ -158,11 +148,6 @@
           "op": "D",
           "ref": "and",
           "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "that",
-          "hyp": "this"
         }
       ],
       "config": {
@@ -189,17 +174,17 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [],
-      "wer": 0.031746031746031744,
+      "wer": 0.023809523809523808,
       "wer_per_round": [
-        0.0317
+        0.0238
       ],
-      "substitutions": 2,
+      "substitutions": 1,
       "deletions": 2,
       "insertions": 0,
       "reference_words": 126,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.031746031746031744,
+      "wer_untrimmed": 0.023809523809523808,
       "turnaround_median_s": 3.07,
       "turnaround_lower_s": 1.5,
       "turnaround_min_s": 3.07,
@@ -223,11 +208,6 @@
           "op": "D",
           "ref": "the",
           "hyp": null
-        },
-        {
-          "op": "S",
-          "ref": "that",
-          "hyp": "this"
         }
       ],
       "config": {
@@ -250,17 +230,17 @@
       "succeeded": 1,
       "failed_rounds": [],
       "notes": [],
-      "wer": 0.031746031746031744,
+      "wer": 0.023809523809523808,
       "wer_per_round": [
-        0.0317
+        0.0238
       ],
-      "substitutions": 3,
+      "substitutions": 2,
       "deletions": 1,
       "insertions": 0,
       "reference_words": 126,
       "outside_clip_words": 0,
       "clip_found": true,
-      "wer_untrimmed": 0.031746031746031744,
+      "wer_untrimmed": 0.023809523809523808,
       "turnaround_median_s": 22.37,
       "turnaround_lower_s": 20.7,
       "turnaround_min_s": 22.37,
@@ -284,11 +264,6 @@
           "op": "S",
           "ref": "leading",
           "hyp": "reading"
-        },
-        {
-          "op": "S",
-          "ref": "that",
-          "hyp": "this"
         }
       ],
       "config": {

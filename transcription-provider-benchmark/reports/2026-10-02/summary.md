@@ -29,8 +29,8 @@ Pooled over 4 runs and 1680 reference words: gaps under 1.0 points are within sa
 | Mia Transcribe | 2.0% | 0.0%–2.9% | 7 | 2247 |
 | JigsawStack | 2.1% | 0.0%–3.7% | 7 | 2247 |
 | AssemblyAI | 2.2% | 0.0%–3.7% | 7 | 2247 |
-| Deepgram | 3.3% | 1.8%–5.9% | 7 | 2247 |
-| Sarvam | 4.1% | 0.0%–7.4% | 7 | 2247 |
+| Deepgram | 3.2% | 1.8%–5.9% | 7 | 2247 |
+| Sarvam | 4.0% | 0.0%–7.4% | 7 | 2247 |
 
 Pooled over 7 runs and 2247 reference words: gaps under 0.8 points are within sampling noise (95%, treating words as independent).
 
@@ -38,11 +38,11 @@ Pooled over 7 runs and 2247 reference words: gaps under 0.8 points are within sa
 
 | Provider | 1. sample | 2. sample | 3. sample | 4. sample | 5. script | 6. clip-b | 7. talk |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Mia Transcribe | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 2.9% | 1.6% |
-| JigsawStack | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 3.7% | 1.6% |
-| AssemblyAI | 2.6% | 2.4% | 2.1% | 1.9% | 0.0% | 3.7% | 1.6% |
-| Deepgram | 3.1% | 2.9% | 3.6% | 2.6% | 1.8% | 5.9% | 3.2% |
-| Sarvam | 3.8% | 3.8% | 5.0% | 3.6% | 0.0% | 7.4% | 3.2% |
+| Mia Transcribe | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 2.9% | 0.8% |
+| JigsawStack | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 3.7% | 0.8% |
+| AssemblyAI | 2.6% | 2.4% | 2.1% | 1.9% | 0.0% | 3.7% | 0.8% |
+| Deepgram | 3.1% | 2.9% | 3.6% | 2.6% | 1.8% | 5.9% | 2.4% |
+| Sarvam | 3.8% | 3.8% | 5.0% | 3.6% | 0.0% | 7.4% | 2.4% |
 
 ### Turnaround, 6 runs polled every second
 

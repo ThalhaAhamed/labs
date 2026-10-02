@@ -35,8 +35,8 @@
 | deepgram | 5.1% | 13 | 1 | 0 |
 | sarvam | 6.5% | 18 | 0 | 0 |
 == 2026-10-02T19-25-58Z
-| meetstream | 2.5% | 2 | 0 | 1 |
-| assemblyai | 2.5% | 2 | 0 | 1 |
-| jigsawstack | 2.5% | 2 | 0 | 1 |
-| deepgram | 4.2% | 3 | 1 | 1 |
-| sarvam | 4.2% | 4 | 0 | 1 |
+| meetstream | 1.7% | 1 | 0 | 1 |
+| assemblyai | 1.7% | 1 | 0 | 1 |
+| jigsawstack | 1.7% | 1 | 0 | 1 |
+| deepgram | 3.3% | 2 | 1 | 1 |
+| sarvam | 3.3% | 3 | 0 | 1 |

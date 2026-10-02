@@ -6,7 +6,7 @@ Everything below comes from the run folders listed in [runs.json](runs.json). `n
 
 ## Findings
 
-1. **Accuracy: Mia Transcribe, JigsawStack and AssemblyAI are tied at the top. Deepgram and Sarvam are measurably behind.** Pooled over all seven runs (2,247 reference words): Mia Transcribe 2.0%, JigsawStack 2.1%, AssemblyAI 2.2%, Deepgram 3.3%, Sarvam 4.1%. Gaps under 0.8 points are sampling noise at this size, so the top three can't be separated, while Deepgram (+1.3 points) and Sarvam (+2.1) are clearly behind. The same order holds on the four sample-clip recordings alone (2.1 / 2.1 / 2.3 / 3.0 / 4.0%).
+1. **Accuracy: Mia Transcribe, JigsawStack and AssemblyAI are tied at the top. Deepgram and Sarvam are measurably behind.** Pooled over all seven runs (2,247 reference words): Mia Transcribe 2.0%, JigsawStack 2.1%, AssemblyAI 2.2%, Deepgram 3.2%, Sarvam 4.0%. Gaps under 0.8 points are sampling noise at this size, so the top three can't be separated, while Deepgram (+1.2 points) and Sarvam (+2.0) are clearly behind. The same order holds on the four sample-clip recordings alone (2.1 / 2.1 / 2.3 / 3.0 / 4.0%).
 2. **Mia Transcribe and JigsawStack are one engine.** They returned the same transcript, word for word, in 6 of 7 runs. In the seventh they differed on 2 of 272 words, both rare names ("Ann"/"Anne", "Ruggedo"). That's what one engine run twice looks like, not two engines. Read them as one result.
 3. **Speed: Deepgram, JigsawStack and Mia Transcribe are fastest, AssemblyAI is in the middle, and Sarvam is slowest.** Median time from request to result: Deepgram 5.7 s, JigsawStack 5.9 s, Mia Transcribe 7.1 s, AssemblyAI 12.0 s, Sarvam 20.7 s. Sarvam was the slowest in every run.
 4. **Turnaround varies a lot from run to run, mostly because of MeetStream, not the providers.** Deepgram ranged from 3.1 to 11.8 s, and Mia Transcribe from 4.2 to 22.6 s. In one run, Mia Transcribe took 22.6 s and JigsawStack 5.0 s on the same recording, although they're the same engine. So a single run can't rank providers on speed; only the medians and the consistent gaps above mean anything.
@@ -22,8 +22,8 @@ Everything below comes from the run folders listed in [runs.json](runs.json). `n
 | Mia Transcribe ◆ | 2.0% | 0.0%–2.9% | 7 | 2247 |
 | JigsawStack ◆ | 2.1% | 0.0%–3.7% | 7 | 2247 |
 | AssemblyAI | 2.2% | 0.0%–3.7% | 7 | 2247 |
-| Deepgram | 3.3% | 1.8%–5.9% | 7 | 2247 |
-| Sarvam | 4.1% | 0.0%–7.4% | 7 | 2247 |
+| Deepgram | 3.2% | 1.8%–5.9% | 7 | 2247 |
+| Sarvam | 4.0% | 0.0%–7.4% | 7 | 2247 |
 
 ◆ One engine (see finding 2). Gaps under 0.8 points are within sampling noise (95%, treating words as independent; real errors cluster, so the true band is wider).
 
@@ -31,11 +31,11 @@ Everything below comes from the run folders listed in [runs.json](runs.json). `n
 
 | Provider | 1. sample (A) | 2. sample (B) | 3. sample (C) | 4. sample (D) | 5. typed script | 6. clip B | 7. person reading |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Mia Transcribe | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 2.9% | 1.6% |
-| JigsawStack | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 3.7% | 1.6% |
-| AssemblyAI | 2.6% | 2.4% | 2.1% | 1.9% | 0.0% | 3.7% | 1.6% |
-| Deepgram | 3.1% | 2.9% | 3.6% | 2.6% | 1.8% | 5.9% | 3.2% |
-| Sarvam | 3.8% | 3.8% | 5.0% | 3.6% | 0.0% | 7.4% | 3.2% |
+| Mia Transcribe | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 2.9% | 0.8% |
+| JigsawStack | 1.4% | 2.9% | 2.9% | 1.4% | 0.0% | 3.7% | 0.8% |
+| AssemblyAI | 2.6% | 2.4% | 2.1% | 1.9% | 0.0% | 3.7% | 0.8% |
+| Deepgram | 3.1% | 2.9% | 3.6% | 2.6% | 1.8% | 5.9% | 2.4% |
+| Sarvam | 3.8% | 3.8% | 5.0% | 3.6% | 0.0% | 7.4% | 2.4% |
 
 The same clip recorded four times gives a provider up to 1.5 points of spread (Mia Transcribe 1.4–2.9%, Sarvam 3.6–5.0%). That's how much a single recording can move a score, and why one run isn't enough to rank.
 
@@ -62,7 +62,7 @@ This is MeetStream's end-to-end time: from sending the re-transcribe request to 
 | 1–4 | Sample clip | 191 s of LibriSpeech dev-clean read speech (pinned file, `sample/manifest.json`), played into the call by a speaker bot | Its exact transcript, 420 words |
 | 5 | Typed script | A 169-word meeting-style script ([inputs/tts-script.txt](inputs/tts-script.txt)) spoken by Windows' built-in voice (System.Speech), 67.5 s ([inputs/tts-speech.wav](inputs/tts-speech.wav)) | The script itself |
 | 6 | Own audio file | Clip B: the next 23 utterances of the same pinned file, 122.5 s ([inputs/build-clip-b.js](inputs/build-clip-b.js) rebuilds it byte-identical) | Its exact transcript, 272 words |
-| 7 | A person reading aloud | A person reading a 126-word script ([inputs/read-aloud-script.txt](inputs/read-aloud-script.txt)) into the call. Recorder bot only, no speaker bot | The script, added after the run (the "add what was said" path) |
+| 7 | A person reading aloud | A person reading a 126-word script ([inputs/read-aloud-script.txt](inputs/read-aloud-script.txt)) into the call. Recorder bot only, no speaker bot | The script, added after the run (the "add what was said" path), with one word corrected to what the reader said |
 
 Runs 2–7 were benchmarked with harness commit `d1e29bc` and polled every second. Run 1 is the earlier Test 1 (28 Sep, 5 s poll, harness commit not recorded). All seven were then scored with normaliser v3 (commit `7c37345`). Every run folder holds the raw response from each provider, the reference, and the normalised texts.
 
@@ -70,7 +70,7 @@ Runs 2–7 were benchmarked with harness commit `d1e29bc` and polled every secon
 
 - **Two scoring rules were added and applied to every run.** On the typed script, every provider wrote "$4.2 million" for "four point two million dollars", and three wrote "November 14" for "November fourteenth". Both were charged as errors. Normaliser v3 now reads money with a scale word and month-day dates the way they're said. Re-scoring changed only the typed-script run (Mia Transcribe, JigsawStack, AssemblyAI and Sarvam went from 1.2–1.8% to 0.0%; Deepgram from 2.4% to 1.8%). The other six runs scored exactly the same.
 - **Deepgram writes large amounts as digits** ("$4,200,000" for "four point two million dollars"). That's the same amount, but it's still charged here. It's Deepgram's entire 1.8% on the typed script.
-- **The person-reading run probably has two reader errors in its reference.** All five providers wrote "one hundred twelve" (no "and") and "**This** is the end" where the script says "one hundred **and** twelve" and "**That** is the end". When five independent engines agree like that, the reader most likely said it that way. If so, every provider's score on that run is 1.6 points too high, but the order doesn't change. The reference is left as the script, because only the speaker can confirm what was said.
+- **The person-reading run's reference was corrected for one word the reader confirmed.** All five providers heard "**This** is the end" where the script says "**That** is the end". The reader confirmed they said "This", so the reference now says so. `run.json` records the change, why, and the previous hash, and every provider's score on that run dropped 0.8 points. All five also wrote "one hundred twelve" where the script says "one hundred **and** twelve". That's probably how it was read too, but it wasn't confirmed, so it's left as written and costs every provider the same 0.8 points.
 
 ## Limitations
 

@@ -32,9 +32,17 @@
   "reference": {
     "file": "reference.txt",
     "source": "read-aloud-script.txt",
-    "sha256": "8a772f1cf9a5a12f83ec1d15d45f7b7df55db8f832baf9fdffad779a65a49b2d",
+    "sha256": "44841935bec048bedca727e5a0fa47a4ca761cd268c18d8c7d04adcc73e236ec",
     "sha256_line_endings": "lf",
-    "added_at": "2026-10-02T19:26:38.923Z"
+    "added_at": "2026-10-02T19:26:38.923Z",
+    "corrections": [
+      {
+        "at": "2026-10-02T19:32:58.430Z",
+        "changed": "That is the end of the test. -> This is the end of the test.",
+        "why": "the speaker confirmed they said \"This\" (all five providers had heard \"This\")",
+        "sha256_before": "8a772f1cf9a5a12f83ec1d15d45f7b7df55db8f832baf9fdffad779a65a49b2d"
+      }
+    ]
   },
   "providers": {
     "meetstream": {
