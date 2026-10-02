@@ -35,6 +35,19 @@ async function getBotStatus(botId) {
   return String((data && typeof data === "object" ? data.status : data) ?? "");
 }
 
+/**
+ * GET /bots/{id}: why a bot failed, from the last message in its status
+ * timeline that isn't routine ("Bot is leaving the meeting"). null if none.
+ */
+async function getFailureReason(botId) {
+  const { data } = await client().get(`/bots/${botId}`);
+  const timeline = data?.bot_details?.StatusTimeline ?? {};
+  const steps = Object.entries(timeline)
+    .filter(([, s]) => s?.status && s.message && !/^Bot is (leaving|joining)/i.test(s.message))
+    .sort((a, b) => String(a[1].timestamp).localeCompare(String(b[1].timestamp)));
+  return steps.length ? steps[steps.length - 1][1].message : null;
+}
+
 async function removeBot(botId) {
   const { data } = await client().get(`/bots/${botId}/remove_bot`);
   return data;
@@ -76,6 +89,7 @@ function describeError(err) {
 module.exports = {
   createBot,
   getBotStatus,
+  getFailureReason,
   removeBot,
   transcribe,
   listTranscriptions,

@@ -60,3 +60,17 @@ test("audio that's too short or silent is refused before any bot is sent", () =>
   assert.throws(() => checkClip(tone(10, 0)), /silent/);
   assert.equal(Math.round(checkClip(tone(5, 8000))), 5);
 });
+
+test("a bot that errors stops the wait at once, with MeetStream's reason", async () => {
+  const api = require("../src/api");
+  const { waitInCall } = require("../src/recorder");
+  api.getBotStatus = async () => "Error";
+  api.getFailureReason = async () => "Error: Zoom authentication failed with result: AuthResult.AUTHRET_JWTTOKENWRONG";
+  const log = console.log;
+  console.log = () => {};
+  try {
+    await assert.rejects(waitInCall("bot-1", "listener"), /status Error .*AUTHRET_JWTTOKENWRONG/);
+  } finally {
+    console.log = log;
+  }
+});

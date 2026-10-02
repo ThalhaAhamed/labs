@@ -32,7 +32,7 @@ const SETTLE_SECONDS = 5;           // silence before the clip
 const TAIL_SECONDS = 20;
 const JOIN_TIMEOUT_MS = 10 * 60_000; // time allowed for someone to admit the bots
 const IN_CALL = new Set(["InMeeting", "Recording"]);
-const FAILED = new Set(["Failed", "Denied", "NotAllowed", "Stopped", "Done"]);
+const FAILED = new Set(["Failed", "Denied", "NotAllowed", "Stopped", "Done", "Error"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -52,7 +52,12 @@ async function waitInCall(botId, label) {
       last = status;
     }
     if (IN_CALL.has(status)) return;
-    if (FAILED.has(status)) throw new Error(`${label} bot ended with status ${status} before the clip was played`);
+    if (FAILED.has(status)) {
+      // MeetStream keeps the reason in the bot's status timeline, e.g. "Zoom
+      // authentication failed ... AUTHRET_JWTTOKENWRONG" (wrong Zoom SDK credentials).
+      const why = await api.getFailureReason(botId).catch(() => null);
+      throw new Error(`${label} bot ended with status ${status} before the clip was played${why ? `: ${why}` : ""}`);
+    }
     await sleep(3000);
   }
   throw new Error(`${label} bot was not admitted within ${JOIN_TIMEOUT_MS / 60_000} minutes`);
@@ -315,4 +320,4 @@ async function timeLiveTranscript(botId, provider, leftAt, pollMs = 5000, timeou
   return { provider, status: "TimedOut", left_call_at: new Date(leftAt).toISOString() };
 }
 
-module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, checkClip, SEND_RATE };
+module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, checkClip, waitInCall, SEND_RATE };

@@ -28,7 +28,7 @@ async function waitForRecording(botId) {
   for (;;) {
     const status = await api.getBotStatus(botId);
     if (!STILL_RECORDING.has(status)) {
-      if (["Failed", "Denied", "NotAllowed"].includes(status)) {
+      if (["Failed", "Denied", "NotAllowed", "Error"].includes(status)) {
         throw new Error(`bot ${botId} has status ${status}; there is no recording to transcribe`);
       }
       return status;

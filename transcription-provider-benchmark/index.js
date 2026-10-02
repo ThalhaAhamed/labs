@@ -154,7 +154,10 @@ main().then(
   // The ngrok tunnel keeps the event loop alive after a recording.
   () => process.exit(0),
   (err) => {
-    console.error(`\n  ${err.message}\n`);
+    // An API error: show MeetStream's own reason (e.g. "Zoom bots require
+    // Zoom credentials in user profile"), not just "status code 400".
+    const why = err.response ? require("./src/api").describeError(err) : err.message;
+    console.error(`\n  ${why}\n`);
     process.exit(1);
   }
 );
