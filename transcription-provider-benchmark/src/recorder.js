@@ -31,7 +31,12 @@ const SETTLE_SECONDS = 5;           // silence before the clip
 // and removing it at +5s cut the last ~13s of a 191s clip from the recording.
 const TAIL_SECONDS = 20;
 const JOIN_TIMEOUT_MS = 10 * 60_000; // time allowed for someone to admit the bots
-const IN_CALL = new Set(["InMeeting", "Recording"]);
+// In the call: on Zoom, granting the bot recording permission moves it to
+// RecordingPermissionAllowed, which is still in the call.
+const IN_CALL = new Set(["InMeeting", "Recording", "RecordingPermissionAllowed"]);
+// Statuses that mean a bot has left or will not record. Anything else (new or
+// platform-specific statuses included) is not treated as leaving.
+const LEFT = new Set(["Leaving", "Stopped", "Done", "Failed", "Error", "Denied", "NotAllowed", "RecordingPermissionDenied"]);
 const FAILED = new Set(["Failed", "Denied", "NotAllowed", "Stopped", "Done", "Error"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -190,7 +195,7 @@ async function record({ meetingLink, audioPath, referencePath, port, liveProvide
     let playedAt;
     const watch = setInterval(async () => {
       const status = await api.getBotStatus(bots.listener).catch(() => null);
-      if (status && !IN_CALL.has(status) && !recorderGone) {
+      if (status && LEFT.has(status) && !recorderGone) {
         const why = await api.getFailureReason(bots.listener).catch(() => null);
         recorderGone = `the recorder bot left the call (${status}${why ? `: ${why}` : ""})`;
       }
@@ -343,4 +348,4 @@ async function timeLiveTranscript(botId, provider, leftAt, pollMs = 5000, timeou
   return { provider, status: "TimedOut", left_call_at: new Date(leftAt).toISOString() };
 }
 
-module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, checkClip, waitInCall, SEND_RATE };
+module.exports = { record, recordListenerOnly, startControlServer, play, timeLiveTranscript, checkClip, waitInCall, IN_CALL, LEFT, SEND_RATE };

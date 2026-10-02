@@ -88,3 +88,12 @@ test("playback stops as soon as the recorder is reported gone", async () => {
   }
   assert.equal(sent.length, 2, "nothing more is sent once the recorder has gone");
 });
+
+test("Zoom's recording-permission statuses: allowed is still in the call, denied is gone", () => {
+  const { IN_CALL, LEFT } = require("../src/recorder");
+  assert.equal(IN_CALL.has("RecordingPermissionAllowed"), true);
+  assert.equal(LEFT.has("RecordingPermissionAllowed"), false);
+  assert.equal(LEFT.has("RecordingPermissionDenied"), true);
+  for (const s of ["Leaving", "Stopped", "Done", "Error"]) assert.equal(LEFT.has(s), true, s);
+  assert.equal(LEFT.has("SomeNewPlatformStatus"), false, "an unknown status isn't taken as leaving");
+});
