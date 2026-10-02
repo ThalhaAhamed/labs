@@ -139,7 +139,11 @@ function normalize(text) {
   s = s.replace(/[‘’ʼ`]/g, "'");
   s = s.replace(/&/g, " and ");
   s = s.replace(/(\d),(?=\d{3}\b)/g, "$1"); // 1,000 -> 1000
+  // "$4.2 million" is said "four point two million dollars": the unit goes after the scale word.
+  s = s.replace(/\$(\d+(?:\.\d+)?)\s*(thousand|million|billion|trillion)\b/g, "$1 $2 dollars");
   s = s.replace(/\$(\d+(?:\.\d+)?)/g, "$1 dollars");
+  // A day after a month is said as an ordinal: "November 14" -> "November fourteenth".
+  s = s.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b/g, "$1 $2th");
   s = s.replace(/(\d+(?:\.\d+)?)\s*%/g, "$1 percent");
   s = s.replace(/(\d{1,2}):(\d{2})\b/g, (_, h, m) => `${h} ${m === "00" ? "" : m}`);
   // Hyphens and dashes join words that are spoken separately.
@@ -148,9 +152,10 @@ function normalize(text) {
   // Also combining marks (\p{M}): in Tamil, Hindi and other Indic scripts the
   // vowel signs are marks, and dropping them splits words apart and makes
   // different words look the same.
+  // NUL stands in for a decimal point while punctuation is removed.
   s = s.replace(/(\d)\.(\d)/g, "$1\u0000$2");
-  s = s.replace(/[^\p{L}\p{M}\p{N}'\u0000\s]/gu, " ");
-  s = s.replace(/\u0000/g, ".");
+  s = s.replace(/[^\p{L}\p{M}\p{N}'\u0000\s]/gu, " "); // eslint-disable-line no-control-regex
+  s = s.replace(/\u0000/g, "."); // eslint-disable-line no-control-regex
 
   const out = [];
   for (let word of s.split(/\s+/)) {

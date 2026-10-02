@@ -17,9 +17,13 @@
 import { WebSocket } from "ws";
 import { withReconnect } from "./reconnect-helper.js";
 
+// model=nova-3: without it Deepgram streams with its legacy "base" model, which
+// on the benchmark's sample clip scored 14.5% WER against Nova-3's 3.6%. Same
+// model and language as the post-call benchmark, so the two are comparable.
 const DEEPGRAM_URL =
   "wss://api.deepgram.com/v1/listen" +
-  "?encoding=linear16&sample_rate=48000&channels=1" +
+  "?model=nova-3&language=en" +
+  "&encoding=linear16&sample_rate=48000&channels=1" +
   "&punctuate=true&smart_format=true&interim_results=true";
 
 /**
