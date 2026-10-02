@@ -2,33 +2,29 @@
 
 This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
 
-Latest run, [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.md): Google Meet, the 191 s sample clip (420 reference words). One recording was sent to all five providers through the same re-transcribe request, and each was timed from its own request.
+**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md).** Seven recordings on Google Meet, each sent to all five providers: the sample clip recorded four times, a typed script read by text-to-speech, a second clip, and a person reading aloud. 2,247 reference words in total, and every provider succeeded on every run.
 
-| Provider | WER | Sub / Del / Ins | Turnaround (finished within) | Cost | Per hour |
+| Provider | WER (pooled, 7 runs) | Range over runs | Turnaround (median, 6 runs) | Slowest run | Per hour |
 |---|---:|---:|---:|---:|---:|
-| Mia Transcribe ◆ | 1.4% | 5 / 1 / 0 | 2.5–8.6 s | $0.0071 | $0.10 |
-| JigsawStack ◆ | 1.4% | 5 / 1 / 0 | 1.0–7.5 s ‡ | $0.0019 | ~$0.03* |
-| AssemblyAI | 2.6% | 8 / 2 / 1 | 8.6–14.3 s | $0.012 | $0.17 |
-| Deepgram | 3.1% | 10 / 3 / 0 | 2.5–8.6 s | $0.018 | $0.26 |
-| Sarvam | 3.8% | 13 / 3 / 0 | 14.3–20.1 s | $0.033 | $0.47 |
+| Mia Transcribe ◆ | 2.0% | 0.0–2.9% | 7.1 s | 22.6 s | $0.10 |
+| JigsawStack ◆ | 2.1% | 0.0–3.7% | 5.9 s | 11.3 s | ~$0.03* |
+| AssemblyAI | 2.2% | 0.0–3.7% | 12.0 s | 14.7 s | $0.17 |
+| Deepgram | 3.3% | 1.8–5.9% | 5.7 s | 11.8 s | $0.26 |
+| Sarvam | 4.1% | 0.0–7.4% | 20.7 s | 31.1 s | $0.47 |
 
-◆ **One engine, two names.** Mia Transcribe runs on JigsawStack. In this run the two returned exactly the same transcript, in JigsawStack's response format. Count them as one result, not two that agree.
-‡ Re-run on its own after its first attempt failed (see below), so its turnaround isn't comparable with the others'.
-
-Cost is transcription only, for the 4.29 min of billed audio, at each provider's published rate on 2026-09-28 (see [Cost](METHODOLOGY.md#cost)). \*JigsawStack bills by processing tokens, so its per-hour cost depends on the audio.
+◆ **One engine, two names.** Mia Transcribe runs on JigsawStack. They returned the same transcript in 6 of 7 runs, and differed on just 2 rare names in the seventh. Count them as one result.
+\*JigsawStack bills by processing tokens, so its per-hour cost depends on the audio.
 
 How to read this:
 
-- **The sample is small.** One word is 0.24 points of WER. On 420 words, gaps under 1.6 points are within sampling noise (95%), so Mia Transcribe/JigsawStack and AssemblyAI are tied, and Deepgram is only just outside that. The report and the app compute this band for every run.
-- **Scored on words, not formatting.** British/American spelling, unambiguous contractions and compound words written with or without a space (`upguards` / `up guards`) are not counted as errors. These rules were added on 2026-09-30 and Test 1 was re-scored from the same raw transcripts: WER went from 2.1 / 2.9 / 3.8 / 5.0% to 1.4 / 2.6 / 3.1 / 3.8% (Mia Transcribe and JigsawStack / AssemblyAI / Deepgram / Sarvam). Every error removed was a formatting difference, and the ranking didn't change. `michael angelo` / `michelangelo` is still counted: it is a different spelling, not a space.
-- **Turnaround is a window, not a number.** It is MeetStream's end-to-end time from the re-transcribe request (the request itself, queueing, the provider's processing), not the provider's own API latency. This run polled every 5 s, so each job is only known to have finished between two polls. Mia Transcribe and Deepgram both finished within 2.5–8.6 s and can't be told apart; AssemblyAI finished within 8.6–14.3 s and Sarvam within 14.3–20.1 s. New runs poll every 1 s.
-- **One run.** One recording of one clip gives one sample per provider, with no measure of spread. Treat the numbers as indicative.
-- **Read speech, and possibly familiar.** The clip is LibriSpeech audiobook audio, not a meeting, and it's public, so some engines may have trained on it. Your own recordings are the better test (see below).
-- **Different language settings.** `auto` for Mia Transcribe, `en` for Deepgram and JigsawStack, `en_us` for AssemblyAI, `en-IN` for Sarvam: each provider's documented English option through MeetStream. `en-IN` may disadvantage Sarvam on this American and British speech.
-- **Written by an interested party.** MeetStream wrote this harness and sells one of the engines it measures. Everything needed to check a result without trusting it is in the results folder.
-- **JigsawStack was re-run.** Its first attempt failed inside MeetStream before reaching JigsawStack ("Retranscription failed before provider submission"). It was re-run on the same recording about 90 seconds later, on its own. `results.md` records both attempts.
-- **The independent scorer agrees on the ranking.** `scripts/score_jiwer.py` (jiwer with Whisper's normaliser, which MeetStream didn't write) ranks the providers the same way. Its figures are up to 1.1 points higher, because Whisper's normaliser counts compound spacing (`upguards`) as errors.
-- **Every provider's raw transcript is in the results folder.** To re-score it yourself, see [Reproducing a result](METHODOLOGY.md#reproducing-a-result).
+- **Accuracy:** Mia Transcribe/JigsawStack and AssemblyAI are tied at the top: gaps under 0.8 points are sampling noise on 2,247 words. Deepgram (+1.3 points) and Sarvam (+2.1) are measurably behind. The same order holds on the four sample-clip recordings alone.
+- **Speed varies a lot from run to run, mostly because of MeetStream.** In one run the same engine took 22.6 s as Mia Transcribe and 5.0 s as JigsawStack. Only the medians and the consistent gaps mean anything: Deepgram, JigsawStack and Mia Transcribe are fastest, AssemblyAI is in the middle, and Sarvam was slowest in every run. Turnaround is MeetStream's end-to-end time from the re-transcribe request, known to within 1 s, not the provider's own API latency.
+- **One recording isn't enough.** The same clip recorded four times moved a provider's WER by up to 1.5 points.
+- **Scored on words, not formatting.** Spelling conventions, contractions, compound spacing, "$4.2 million" and "November 14" aren't counted as errors (see [METHODOLOGY.md](METHODOLOGY.md#accuracy-word-error-rate)). The independent scorer (`scripts/score_jiwer.py`, jiwer with Whisper's normaliser) puts the providers in the same order.
+- **Limits:** one LibriSpeech speaker on the clips, one synthetic voice, one person reading; read speech, not meetings; Google Meet only; LibriSpeech may be in providers' training data. Each provider uses its documented English setting (`auto` for Mia Transcribe, `en-IN` for Sarvam).
+- **Written by an interested party.** MeetStream wrote this harness and sells one of the engines it measures. Every number can be re-derived from the published run folders without trusting it.
+
+The earlier single-run result (Test 1, 28 Sep) is run 1 of the report, and its folder is [results/2026-09-28T18-08-58Z](results/2026-09-28T18-08-58Z/results.md).
 
 **Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.
 
@@ -215,6 +211,8 @@ results/<run>/
 | `server.js`, `public/` | The browser app and its local API |
 | `scripts/fetch-sample.js` | Builds the pinned LibriSpeech clip |
 | `scripts/score_jiwer.py` | Independent re-score with jiwer and the Whisper normaliser |
+| `scripts/summarize.js` | A multi-run report's tables, computed from the run folders it lists (`node scripts/summarize.js reports/<date>`) |
+| `reports/` | Published reports: the narrative, the list of runs, the generated tables and every test input |
 
 `npm test` runs the scorer (with hand-worked WER cases), the transcript parser, the `sendaudio` streaming path, full benchmarks against a stubbed API (including failed, rate-limited, unreadable and duplicate providers), the scorer's refusal to leave a results folder, and the local server's endpoints. It needs no key and no network. `npm run lint` runs ESLint. The desktop workflow runs both before building any installer.
 

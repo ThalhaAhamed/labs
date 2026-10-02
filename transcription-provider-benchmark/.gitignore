@@ -18,3 +18,6 @@ dist/
 
 # Stamped by npm run dist (the commit the desktop app was built from)
 build-info.json
+
+# Rebuilt byte-identical by reports/*/inputs/build-clip-b.js
+reports/*/inputs/clip-b.wav

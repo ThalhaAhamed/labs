@@ -1,0 +1,248 @@
+{
+  "title": "Transcription provider benchmark, Google Meet, 2026-09-28 to 2026-10-02",
+  "runs": [
+    {
+      "id": "2026-09-28T18-08-58Z",
+      "test": "sample",
+      "label": "Sample clip, recording A (Test 1)",
+      "reference_words": 420,
+      "poll_seconds": 5,
+      "harness": null,
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    },
+    {
+      "id": "2026-10-02T19-10-28Z",
+      "test": "sample",
+      "label": "Sample clip, recording B",
+      "reference_words": 420,
+      "poll_seconds": 1,
+      "harness": {
+        "name": "meetstream-transcription-provider-benchmark",
+        "version": "1.0.2",
+        "commit": "d1e29bc06149e06772357a4d73043e000c85dc22",
+        "dirty": false,
+        "from": "git"
+      },
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    },
+    {
+      "id": "2026-10-02T19-14-43Z",
+      "test": "sample",
+      "label": "Sample clip, recording C",
+      "reference_words": 420,
+      "poll_seconds": 1,
+      "harness": {
+        "name": "meetstream-transcription-provider-benchmark",
+        "version": "1.0.2",
+        "commit": "d1e29bc06149e06772357a4d73043e000c85dc22",
+        "dirty": false,
+        "from": "git"
+      },
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    },
+    {
+      "id": "2026-10-02T19-18-58Z",
+      "test": "sample",
+      "label": "Sample clip, recording D",
+      "reference_words": 420,
+      "poll_seconds": 1,
+      "harness": {
+        "name": "meetstream-transcription-provider-benchmark",
+        "version": "1.0.2",
+        "commit": "d1e29bc06149e06772357a4d73043e000c85dc22",
+        "dirty": false,
+        "from": "git"
+      },
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    },
+    {
+      "id": "2026-10-02T19-21-07Z",
+      "test": "script",
+      "label": "Typed script, read by Windows text-to-speech",
+      "reference_words": 169,
+      "poll_seconds": 1,
+      "harness": {
+        "name": "meetstream-transcription-provider-benchmark",
+        "version": "1.0.2",
+        "commit": "d1e29bc06149e06772357a4d73043e000c85dc22",
+        "dirty": false,
+        "from": "git"
+      },
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    },
+    {
+      "id": "2026-10-02T19-24-13Z",
+      "test": "clip-b",
+      "label": "Own audio file (clip B)",
+      "reference_words": 272,
+      "poll_seconds": 1,
+      "harness": {
+        "name": "meetstream-transcription-provider-benchmark",
+        "version": "1.0.2",
+        "commit": "d1e29bc06149e06772357a4d73043e000c85dc22",
+        "dirty": false,
+        "from": "git"
+      },
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    },
+    {
+      "id": "2026-10-02T19-25-58Z",
+      "test": "talk",
+      "label": "A person reading aloud (reference added after)",
+      "reference_words": 126,
+      "poll_seconds": 1,
+      "harness": {
+        "name": "meetstream-transcription-provider-benchmark",
+        "version": "1.0.2",
+        "commit": "d1e29bc06149e06772357a4d73043e000c85dc22",
+        "dirty": false,
+        "from": "git"
+      },
+      "normalizer": "src/wer.js normalize() v3, 2026-10-03: + money with a scale word, month-day dates (v2: spelling, contractions, compound spacing; see METHODOLOGY.md)"
+    }
+  ],
+  "accuracy_all": {
+    "meetstream": {
+      "runs": 7,
+      "words": 2247,
+      "wer": 0.020471740097908322,
+      "min": 0,
+      "max": 0.029411764705882353
+    },
+    "jigsawstack": {
+      "runs": 7,
+      "words": 2247,
+      "wer": 0.021361815754339118,
+      "min": 0,
+      "max": 0.03676470588235294
+    },
+    "assemblyai": {
+      "runs": 7,
+      "words": 2247,
+      "wer": 0.022251891410769914,
+      "min": 0,
+      "max": 0.03676470588235294
+    },
+    "deepgram": {
+      "runs": 7,
+      "words": 2247,
+      "wer": 0.032932799287939477,
+      "min": 0.01775147928994083,
+      "max": 0.058823529411764705
+    },
+    "sarvam": {
+      "runs": 7,
+      "words": 2247,
+      "wer": 0.040943480195816645,
+      "min": 0,
+      "max": 0.07352941176470588
+    }
+  },
+  "accuracy_sample": {
+    "meetstream": {
+      "runs": 4,
+      "words": 1680,
+      "wer": 0.02142857142857143,
+      "min": 0.014285714285714285,
+      "max": 0.02857142857142857
+    },
+    "jigsawstack": {
+      "runs": 4,
+      "words": 1680,
+      "wer": 0.02142857142857143,
+      "min": 0.014285714285714285,
+      "max": 0.02857142857142857
+    },
+    "assemblyai": {
+      "runs": 4,
+      "words": 1680,
+      "wer": 0.02261904761904762,
+      "min": 0.01904761904761905,
+      "max": 0.02619047619047619
+    },
+    "deepgram": {
+      "runs": 4,
+      "words": 1680,
+      "wer": 0.030357142857142857,
+      "min": 0.02619047619047619,
+      "max": 0.03571428571428571
+    },
+    "sarvam": {
+      "runs": 4,
+      "words": 1680,
+      "wer": 0.04047619047619048,
+      "min": 0.03571428571428571,
+      "max": 0.05
+    }
+  },
+  "turnaround_1s_poll": {
+    "meetstream": {
+      "runs": 6,
+      "median": 7.0649999999999995,
+      "min": 4.19,
+      "max": 22.65
+    },
+    "jigsawstack": {
+      "runs": 6,
+      "median": 5.895,
+      "min": 5.01,
+      "max": 11.3
+    },
+    "assemblyai": {
+      "runs": 6,
+      "median": 11.98,
+      "min": 9.35,
+      "max": 14.68
+    },
+    "deepgram": {
+      "runs": 6,
+      "median": 5.65,
+      "min": 3.07,
+      "max": 11.76
+    },
+    "sarvam": {
+      "runs": 6,
+      "median": 20.675,
+      "min": 14.39,
+      "max": 31.12
+    }
+  },
+  "per_hour_usd": {
+    "meetstream": 0.1,
+    "jigsawstack": 0.027284839073277948,
+    "assemblyai": 0.16999999999999998,
+    "deepgram": 0.25800000000000006,
+    "sarvam": 0.4679700499168053
+  },
+  "transcription_spend_usd": 0.35430186954936765,
+  "mia_jigsawstack_identical": [
+    {
+      "id": "2026-09-28T18-08-58Z",
+      "identical": true
+    },
+    {
+      "id": "2026-10-02T19-10-28Z",
+      "identical": true
+    },
+    {
+      "id": "2026-10-02T19-14-43Z",
+      "identical": true
+    },
+    {
+      "id": "2026-10-02T19-18-58Z",
+      "identical": true
+    },
+    {
+      "id": "2026-10-02T19-21-07Z",
+      "identical": true
+    },
+    {
+      "id": "2026-10-02T19-24-13Z",
+      "identical": false
+    },
+    {
+      "id": "2026-10-02T19-25-58Z",
+      "identical": true
+    }
+  ]
+}

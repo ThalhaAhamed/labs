@@ -1,0 +1,12 @@
+{
+  "title": "Transcription provider benchmark, Google Meet, 2026-09-28 to 2026-10-02",
+  "runs": [
+    { "id": "2026-09-28T18-08-58Z", "test": "sample", "label": "Sample clip, recording A (Test 1)", "note": "5 s poll; JigsawStack re-run on its own" },
+    { "id": "2026-10-02T19-10-28Z", "test": "sample", "label": "Sample clip, recording B" },
+    { "id": "2026-10-02T19-14-43Z", "test": "sample", "label": "Sample clip, recording C" },
+    { "id": "2026-10-02T19-18-58Z", "test": "sample", "label": "Sample clip, recording D" },
+    { "id": "2026-10-02T19-21-07Z", "test": "script", "label": "Typed script, read by Windows text-to-speech" },
+    { "id": "2026-10-02T19-24-13Z", "test": "clip-b", "label": "Own audio file (clip B)" },
+    { "id": "2026-10-02T19-25-58Z", "test": "talk", "label": "A person reading aloud (reference added after)" }
+  ]
+}
