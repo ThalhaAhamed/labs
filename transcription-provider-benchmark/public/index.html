@@ -8,20 +8,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <img src="favicon.png" alt="" width="20" height="20">
-      <h1>Transcriber Benchmark</h1>
-    </div>
-    <button class="pill" id="keysButton" type="button">
-      <span class="dot" id="keyDot"></span><span id="keyLabel">Checking key…</span>
-    </button>
-  </header>
-
   <div class="layout">
-    <nav class="side" aria-label="Runs">
-      <button class="primary wide" id="newRun" type="button"><span aria-hidden="true">+</span> New run</button>
-      <h2 class="side-title">Past runs</h2>
+    <nav class="side" aria-label="Main">
+      <div class="brand">
+        <img src="favicon.png" alt="" width="22" height="22">
+        <div><h1>Transcriber Benchmark</h1><span class="brand-sub">by MeetStream Labs</span></div>
+      </div>
+      <ul class="nav">
+        <li><button type="button" class="nav-item" id="newRun" data-view="setupView">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>New benchmark</button></li>
+        <li><button type="button" class="nav-item" id="navProviders" data-view="providersView">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>Providers</button></li>
+        <li><button type="button" class="nav-item" id="navSettings" data-view="settingsView">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M14.2 8h-2M3.8 8h-2M12.4 3.6l-1.4 1.4M5 11l-1.4 1.4M12.4 12.4L11 11M5 5L3.6 3.6"/></svg>Settings<span class="nav-dot" id="keyDot" hidden title="MeetStream API key needed"></span></button></li>
+      </ul>
+      <h2 class="side-title">Runs <span class="count" id="runCount"></span></h2>
       <ul id="runList" class="run-list"><li class="muted">Loading…</li></ul>
     </nav>
 
@@ -45,17 +46,10 @@
           <p class="hint">A provider you haven't connected still appears in the results, marked "not run" with MeetStream's reason. Untick it below if you don't want it.</p>
         </details>
 
-        <div class="card" id="keysCard" hidden>
-          <h3>Keys</h3>
-          <p class="hint">Kept in this app's memory only and never shown again. You can also put them in <code>.env</code>.</p>
-          <label class="field">MeetStream API key
-            <input id="apiKey" type="password" autocomplete="off" placeholder="ms_…">
-          </label>
-          <label class="field" id="ngrokField"><span>ngrok authtoken <span class="muted">(only for the speaker bot)</span></span>
-            <input id="ngrokToken" type="password" autocomplete="off">
-          </label>
-          <button class="secondary" id="saveKeys" type="button">Save keys</button>
-        </div>
+        <p class="notice" id="keysNotice" hidden>
+          <span id="keysNoticeText"></span>
+          <button class="secondary" type="button" id="keysNoticeButton">Open Settings</button>
+        </p>
 
         <div class="card">
           <h3><span class="step">1</span>Where the audio comes from</h3>
@@ -189,7 +183,7 @@
       <section id="resultView" class="view" hidden>
         <div class="result-head">
           <div>
-            <span class="label">Benchmark result</span>
+            <span class="label" id="resultKind">Benchmark result</span>
             <h2 class="view-title" id="resultTitle">Results</h2>
           </div>
           <div class="downloads" id="downloads"></div>
@@ -226,6 +220,73 @@
         </div>
         <div id="details"></div>
         <div class="tooltip" id="tooltip" role="status" hidden></div>
+      </section>
+
+      <!-- Providers -->
+      <section id="providersView" class="view" hidden>
+        <div>
+          <h2 class="view-title">Providers</h2>
+          <p class="lede">Every transcription provider MeetStream offers, exactly as this benchmark configures it. Each gets the same recording and the same settings rule: its documented model, English where it documents an English code, defaults otherwise.</p>
+        </div>
+        <div class="provider-cards" id="providerCards"></div>
+        <p class="hint" id="providerFoot"></p>
+      </section>
+
+      <!-- Settings -->
+      <section id="settingsView" class="view" hidden>
+        <div>
+          <h2 class="view-title">Settings</h2>
+          <p class="lede">API keys, where this app keeps its data, and what it is.</p>
+        </div>
+
+        <div class="card settings-card">
+          <h3>API keys</h3>
+          <div class="key-row" id="keyMeetstream">
+            <div class="key-info">
+              <strong>MeetStream API key</strong>
+              <span class="hint">Sends the bots and runs every provider. Find it in the <a href="https://app.meetstream.ai" target="_blank" rel="noopener">MeetStream dashboard</a>.</span>
+              <span class="key-status" data-status></span>
+            </div>
+            <div class="key-edit">
+              <input type="password" autocomplete="off" spellcheck="false" placeholder="Paste a new key" aria-label="MeetStream API key" data-input>
+              <button class="primary small" type="button" data-save>Save</button>
+              <button class="secondary" type="button" data-test>Test connection</button>
+              <button class="ghost danger" type="button" data-clear>Remove</button>
+            </div>
+            <p class="key-result" data-result role="status"></p>
+          </div>
+          <div class="key-row" id="keyNgrok">
+            <div class="key-info">
+              <strong>ngrok authtoken</strong>
+              <span class="hint">Only for <em>Record a meeting: a bot plays a clip</em>. The speaker bot fetches the clip through an ngrok tunnel. Free at <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" rel="noopener">dashboard.ngrok.com</a>.</span>
+              <span class="key-status" data-status></span>
+            </div>
+            <div class="key-edit">
+              <input type="password" autocomplete="off" spellcheck="false" placeholder="Paste a new token" aria-label="ngrok authtoken" data-input>
+              <button class="primary small" type="button" data-save>Save</button>
+              <button class="ghost danger" type="button" data-clear>Remove</button>
+            </div>
+            <p class="key-result" data-result role="status"></p>
+          </div>
+          <p class="hint" id="keyStorageNote"></p>
+        </div>
+
+        <div class="card settings-card">
+          <h3>Storage</h3>
+          <div class="storage-path">
+            <code id="dataPath">…</code>
+            <button class="secondary" type="button" id="openDataFolder" hidden>Open folder</button>
+          </div>
+          <div class="storage-bar" id="storageBar" aria-hidden="true"></div>
+          <dl class="storage-list" id="storageList"></dl>
+          <p class="hint">Each run keeps its transcripts and scores (well under 1 MB). Uploaded audio is kept so a run can be traced back to exactly what was played.</p>
+        </div>
+
+        <div class="card settings-card">
+          <h3>About</h3>
+          <dl class="about-list" id="aboutList"></dl>
+          <p class="hint">MeetStream wrote this tool and sells one of the engines it measures (Mia Transcribe). Every number comes from files you can re-score yourself: read the <a href="https://github.com/meetstream-ai/labs/tree/main/transcription-provider-benchmark" target="_blank" rel="noopener">methodology</a>.</p>
+        </div>
       </section>
     </main>
   </div>

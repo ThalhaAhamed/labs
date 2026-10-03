@@ -29,6 +29,7 @@ const { PROVIDERS } = require("./src/providers");
 const { RATES, PRICES_AS_OF } = require("./src/pricing");
 const { ttsEngine } = require("./src/tts");
 const { inRun } = require("./src/report");
+const { decoder } = require("./src/audio");
 const TTS = ttsEngine();
 
 const PORT = parseInt(process.env.UI_PORT || "4173", 10);
@@ -113,6 +114,8 @@ const runNode = (script, args, env = {}) =>
 // memory for this process only; the desktop app supplies a store that keeps
 // them (encrypted by the OS) between launches.
 let keyStore = null;
+// What the desktop app adds: openPath(folder) shows a folder in the OS.
+const hooks = { openPath: null };
 const keys = {
   MEETSTREAM_API_KEY: process.env.MEETSTREAM_API_KEY || "",
   NGROK_AUTHTOKEN: process.env.NGROK_AUTHTOKEN || "",
@@ -138,21 +141,115 @@ app.get("/api/status", (_req, res) => {
     hasNgrok: Boolean(keys.NGROK_AUTHTOKEN),
     sampleReady: exists(SAMPLE_AUDIO) && exists(SAMPLE_REFERENCE),
     tts: TTS?.name ?? null,
+    // "builtin" (no ffmpeg, the desktop build): the page converts uploads to WAV.
+    decoder: decoder(),
     busy: Boolean(current && !current.done),
     currentJob: current && !current.done ? current.id : null,
     currentMode: current && !current.done ? current.spec.mode : null,
   });
 });
 
+// Where each key came from: "env" (.env or the environment), "saved" (the
+// desktop app's encrypted store), "session" (typed in, kept in memory only).
+const keySource = Object.fromEntries(Object.keys(keys).map((k) => [k, keys[k] ? "env" : null]));
+const keyState = () => Object.fromEntries(Object.keys(keys).map((k) => [k, { set: Boolean(keys[k]), source: keys[k] ? keySource[k] : null }]));
+const persistent = () => Boolean(keyStore?.persistent?.());
+
 app.post("/api/keys", (req, res) => {
-  for (const name of ["MEETSTREAM_API_KEY", "NGROK_AUTHTOKEN"]) {
-    if (typeof req.body?.[name] === "string" && req.body[name].trim()) keys[name] = req.body[name].trim();
+  for (const name of Object.keys(keys)) {
+    if (typeof req.body?.[name] === "string" && req.body[name].trim()) {
+      keys[name] = req.body[name].trim();
+      keySource[name] = persistent() ? "saved" : "session";
+    }
   }
-  try { keyStore?.save({ ...keys }); } catch (err) { console.warn(`  could not save keys: ${err.message}`); }
-  res.json({ hasKey: Boolean(keys.MEETSTREAM_API_KEY), hasNgrok: Boolean(keys.NGROK_AUTHTOKEN) });
+  for (const name of [].concat(req.body?.clear ?? []).filter((n) => n in keys)) {
+    keys[name] = "";
+    keySource[name] = null;
+  }
+  // Only keys typed in here are stored: one from .env stays in .env.
+  const toSave = Object.fromEntries(Object.keys(keys).filter((k) => keySource[k] === "saved").map((k) => [k, keys[k]]));
+  try { keyStore?.save(toSave); } catch (err) { console.warn(`  could not save keys: ${err.message}`); }
+  res.json({ hasKey: Boolean(keys.MEETSTREAM_API_KEY), hasNgrok: Boolean(keys.NGROK_AUTHTOKEN), keys: keyState() });
 });
 
+// Checks the MeetStream key by listing the account's bots.
+app.post("/api/keys/test", async (_req, res) => {
+  if (!keys.MEETSTREAM_API_KEY) return res.status(400).json({ error: "No MeetStream API key set." });
+  try {
+    const axios = require("axios");
+    const { data } = await axios.get("https://api.meetstream.ai/api/v1/bots", {
+      headers: { Authorization: `Token ${keys.MEETSTREAM_API_KEY}` },
+      timeout: 20_000,
+    });
+    res.json({ ok: true, bots: (data?.bots ?? []).length });
+  } catch (err) {
+    const status = err.response?.status;
+    res.status(502).json({ error: status === 401 || status === 403 ? "MeetStream rejected this key." : err.response?.data?.error ?? err.message });
+  }
+});
+
+/** Total bytes under a folder (0 if it doesn't exist). */
+function folderBytes(dir) {
+  let total = 0;
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      total += entry.isDirectory() ? folderBytes(p) : fs.statSync(p).size;
+    }
+  } catch { /* missing or unreadable */ }
+  return total;
+}
+
+app.get("/api/settings", (_req, res) => {
+  res.json({
+    keys: keyState(),
+    persistent: persistent(),
+    desktop: Boolean(hooks.openPath),
+    version: require("./package.json").version,
+    decoder: decoder(),
+    pricesAsOf: PRICES_AS_OF,
+    storage: {
+      path: DATA,
+      runs: folderBytes(RESULTS),
+      recordings: folderBytes(RECORDINGS),
+      uploads: folderBytes(UPLOADS),
+      sample: folderBytes(path.dirname(SAMPLE_AUDIO)),
+    },
+  });
+});
+
+app.post("/api/data-folder/open", (_req, res) => {
+  if (!hooks.openPath) return res.status(400).json({ error: "Only the desktop app can open folders." });
+  hooks.openPath(DATA);
+  res.json({ ok: true });
+});
+
+// How each provider has done across the runs saved here: WER pooled over
+// every scored run (errors over reference words), median turnaround.
+function providerStats() {
+  const stats = {};
+  for (const { dir } of runJsons()) {
+    const r = readJson(path.join(dir, "results.json"));
+    for (const p of r?.providers ?? []) {
+      if (!p.ran) continue;
+      const s = (stats[p.provider] ??= { runs: 0, scoredWords: 0, errors: 0, turnarounds: [] });
+      s.runs++;
+      if (p.wer != null && r.reference_words) { s.scoredWords += r.reference_words; s.errors += p.wer * r.reference_words; }
+      if (p.turnaround_median_s != null && p.turnaround_comparable !== false) s.turnarounds.push(p.turnaround_median_s);
+    }
+  }
+  const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  return Object.fromEntries(Object.entries(stats).map(([k, s]) => [k, {
+    runs: s.runs,
+    wer: s.scoredWords ? s.errors / s.scoredWords : null,
+    words: s.scoredWords,
+    turnaround_median_s: median(s.turnarounds),
+    turnaround_runs: s.turnarounds.length,
+  }]));
+}
+
 app.get("/api/providers", (_req, res) => {
+  const stats = providerStats();
   res.json({
     pricesAsOf: PRICES_AS_OF,
     providers: Object.keys(PROVIDERS).map((key) => ({
@@ -160,6 +257,7 @@ app.get("/api/providers", (_req, res) => {
       config: PROVIDERS[key],
       rate: RATES[key]?.describe({ config: PROVIDERS[key] }) ?? null,
       pricing: RATES[key]?.source ?? null,
+      stats: stats[key] ?? null,
     })),
   });
 });
@@ -229,11 +327,18 @@ app.get("/api/runs", (_req, res) => {
     .map((d) => {
       const r = JSON.parse(fs.readFileSync(path.join(RESULTS, d, "results.json"), "utf8"));
       const run = JSON.parse(fs.readFileSync(path.join(RESULTS, d, "run.json"), "utf8"));
+      const rec = run.recording;
+      const wers = r.providers.filter((p) => p.ran && p.wer != null).map((p) => p.wer);
       return {
         id: d,
         bot_id: r.bot_id,
-        bot_name: run.recording?.bot_name ?? null,
+        bot_name: rec?.bot_name ?? null,
+        meeting_platform: rec?.meeting_platform ?? null,
+        // What was in the call: a played clip (sample, typed script or a file),
+        // people talking (clip null), or unknown (no recording info).
+        clip: rec ? (rec.clip ? { path: rec.clip.path, synthetic_speech: rec.clip.synthetic_speech ?? null } : null) : undefined,
         scored: r.reference_words != null,
+        best_wer: wers.length ? Math.min(...wers) : null,
         providers: r.providers.filter((p) => p.ran).length,
         started_at: run.started_at ?? null,
       };
@@ -525,10 +630,13 @@ async function shutdown() {
  * does that, so it never collides with anything already running).
  * @returns {Promise<{ server: import("http").Server, port: number }>}
  */
-function start({ port = PORT, store = null } = {}) {
+function start({ port = PORT, store = null, openPath = null } = {}) {
   keyStore = store;
+  hooks.openPath = openPath;
   const saved = store?.load() ?? {};
-  for (const name of Object.keys(keys)) if (!keys[name] && saved[name]) keys[name] = saved[name];
+  for (const name of Object.keys(keys)) {
+    if (!keys[name] && saved[name]) { keys[name] = saved[name]; keySource[name] = "saved"; }
+  }
   return new Promise((resolve, reject) => {
     const server = app.listen(port, "127.0.0.1", () => resolve({ server, port: server.address().port }));
     server.on("error", reject);

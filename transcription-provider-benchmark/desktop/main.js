@@ -65,6 +65,7 @@ function keyStore(dir) {
       if (!safeStorage.isEncryptionAvailable()) return; // don't write keys in the clear
       fs.writeFileSync(file, safeStorage.encryptString(JSON.stringify(keys)), { mode: 0o600 });
     },
+    persistent: () => safeStorage.isEncryptionAvailable(),
   };
 }
 
@@ -87,7 +88,9 @@ function seed(dataDir) {
   if (fs.existsSync(results)) {
     for (const run of fs.readdirSync(results)) copyDir(path.join(results, run), path.join(dataDir, "results", run));
   }
-  for (const f of ["reference.txt", "manifest.json"]) {
+  // The sample clip ships with the app (6 MB): building it needs ffmpeg to
+  // decode LibriSpeech's FLAC, which the desktop build leaves out.
+  for (const f of ["reference.txt", "manifest.json", "clip.wav"]) {
     const from = path.join(APP_ROOT, "sample", f), to = path.join(dataDir, "sample", f);
     if (fs.existsSync(from) && !fs.existsSync(to)) {
       fs.mkdirSync(path.dirname(to), { recursive: true });
@@ -103,7 +106,7 @@ async function launch() {
   process.env.BENCH_DATA_DIR = dataDir; // read by server.js when it loads
 
   const { start, shutdown } = require(path.join(APP_ROOT, "server.js"));
-  const { port } = await start({ port: 0, store: keyStore(dataDir) });
+  const { port } = await start({ port: 0, store: keyStore(dataDir), openPath: (dir) => shell.openPath(dir) });
   // Closing mid-run: take the run's bots out of the meeting first, or they
   // stay in the call (and keep billing) until the recorder's time limit.
   let closing = false;
@@ -116,22 +119,11 @@ async function launch() {
   const url = `http://127.0.0.1:${port}/`;
   console.log(`Transcriber Benchmark serving ${url} (data: ${dataDir})`);
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
-    { role: "fileMenu" },
-    { role: "editMenu" },
-    {
-      label: "View",
-      submenu: [{ role: "reload" }, { role: "toggleDevTools" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }],
-    },
-    {
-      label: "Help",
-      submenu: [
-        { label: "Open data folder", click: () => shell.openPath(dataDir) },
-        { label: "Methodology", click: () => shell.openExternal("https://github.com/meetstream-ai/labs/tree/main/transcription-provider-benchmark") },
-      ],
-    },
-  ]));
+  // No menu bar: everything lives in the app (Settings has the data folder).
+  // macOS keeps its standard app and Edit menus, which copy and paste need there.
+  Menu.setApplicationMenu(process.platform === "darwin"
+    ? Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }, { role: "windowMenu" }])
+    : null);
 
   const win = new BrowserWindow({
     width: 1320,

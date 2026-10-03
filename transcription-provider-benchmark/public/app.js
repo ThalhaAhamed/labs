@@ -33,39 +33,56 @@ const secs = (x) => (x == null ? "–" : `${x.toFixed(1)} s`);
 const usd = (x) => (x == null ? "–" : `$${x < 0.01 ? x.toFixed(4) : x.toFixed(3)}`);
 const perHour = (x) => (x == null ? "–" : `$${x.toFixed(2)}/hr`);
 
+// "us05web.zoom.us" → "Zoom": the meeting link's host, named as people say it
+// (short: "Meet", "Teams", for the run list).
+function platformName(host, short = false) {
+  if (!host) return null;
+  if (/(^|\.)zoom\.us$/i.test(host)) return "Zoom";
+  if (/^meet\.google\.com$/i.test(host)) return short ? "Meet" : "Google Meet";
+  if (/(^|\.)teams\.(live|microsoft)\.com$/i.test(host)) return short ? "Teams" : "Microsoft Teams";
+  return host;
+}
+// "3 Oct, 2:12 am", with the year only when it isn't this one.
+const shortWhen = (d) => d.toLocaleString([], {
+  day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+  ...(d.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+});
+// What was in the call, from the recording's clip: the bundled sample, a typed
+// script, an audio file, or people talking (no clip). Undefined: not known.
+function audioName(clip) {
+  if (clip === undefined) return "Existing recording";
+  if (clip === null) return "People talking";
+  if (clip.synthetic_speech) return "Typed script";
+  if (clip.path === "sample/clip.wav") return "Sample clip";
+  return clip.path.split("/").pop();
+}
+
 let appStatus = { hasKey: false, hasNgrok: false, sampleReady: false };
 
 // ── Views ───────────────────────────────────────────────────────────────────
 
+const VIEWS = ["setupView", "liveView", "resultView", "providersView", "settingsView"];
 function show(view) {
-  for (const v of ["setupView", "liveView", "resultView"]) $(`#${v}`).hidden = v !== view;
+  for (const v of VIEWS) $(`#${v}`).hidden = v !== view;
   if (view !== "resultView") $$("#runList button").forEach((b) => b.removeAttribute("aria-current"));
+  // A live run belongs to "New benchmark" in the navigation.
+  const nav = view === "liveView" ? "setupView" : view;
+  $$(".nav-item").forEach((b) => b.toggleAttribute("aria-current", b.dataset.view === nav));
   window.scrollTo({ top: 0 });
 }
 
-// ── Status and keys ─────────────────────────────────────────────────────────
+// ── Status ──────────────────────────────────────────────────────────────────
 
 async function refreshStatus() {
   appStatus = await api("/api/status");
-  $("#keyDot").className = `dot ${appStatus.hasKey ? "ok" : "missing"}`;
-  $("#keyLabel").textContent = appStatus.hasKey ? "MeetStream key set" : "MeetStream key needed";
+  $("#keyDot").hidden = appStatus.hasKey;
   updateSetup();
   return appStatus;
 }
 
-$("#keysButton").addEventListener("click", () => {
-  show("setupView");
-  $("#keysCard").hidden = false;
-  $("#apiKey").focus();
-});
-
-$("#saveKeys").addEventListener("click", async () => {
-  const body = { MEETSTREAM_API_KEY: $("#apiKey").value, NGROK_AUTHTOKEN: $("#ngrokToken").value };
-  await api("/api/keys", { method: "POST", body });
-  $("#apiKey").value = "";
-  $("#ngrokToken").value = "";
-  await refreshStatus();
-});
+$("#navProviders").addEventListener("click", () => { show("providersView"); loadProviderPage(); });
+$("#navSettings").addEventListener("click", () => { show("settingsView"); loadSettings(); });
+$("#keysNoticeButton").addEventListener("click", () => { show("settingsView"); loadSettings(); });
 
 // ── Setup form ──────────────────────────────────────────────────────────────
 
@@ -126,8 +143,10 @@ function updateSetup() {
     : "The sample clip hasn't been built yet (downloads about 10 MB once).";
   $("#buildSample").hidden = appStatus.sampleReady;
 
-  $("#keysCard").hidden = appStatus.hasKey && !(m === "two-bot" && !appStatus.hasNgrok);
-  $("#ngrokField").hidden = m !== "two-bot";
+  // Keys live in Settings; say here what this run is missing.
+  const missing = [!appStatus.hasKey && "a MeetStream API key", m === "two-bot" && !appStatus.hasNgrok && "an ngrok authtoken (for the speaker bot)"].filter(Boolean);
+  $("#keysNotice").hidden = !missing.length;
+  $("#keysNoticeText").textContent = missing.length ? `This run needs ${missing.join(" and ")}. Add it in Settings.` : "";
 }
 
 $$('input[name="mode"], input[name="audio"], input[name="reference"]').forEach((i) => i.addEventListener("change", updateSetup));
@@ -250,6 +269,34 @@ function readAsBase64(file) {
   });
 }
 
+/** Decodes any audio the browser can play to 48 kHz mono 16-bit WAV, base64. */
+async function toWavBase64(file) {
+  const RATE = 48_000;
+  let decoded;
+  try {
+    decoded = await new OfflineAudioContext(1, 1, RATE).decodeAudioData(await file.arrayBuffer());
+  } catch {
+    throw new Error(`Couldn't read ${file.name} as audio. Try a WAV, MP3, M4A or FLAC file.`);
+  }
+  const frames = decoded.length, channels = decoded.numberOfChannels;
+  const data = new DataView(new ArrayBuffer(44 + frames * 2));
+  const text = (at, s) => [...s].forEach((c, i) => data.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF"); data.setUint32(4, 36 + frames * 2, true); text(8, "WAVE");
+  text(12, "fmt "); data.setUint32(16, 16, true); data.setUint16(20, 1, true); data.setUint16(22, 1, true);
+  data.setUint32(24, RATE, true); data.setUint32(28, RATE * 2, true); data.setUint16(32, 2, true); data.setUint16(34, 16, true);
+  text(36, "data"); data.setUint32(40, frames * 2, true);
+  const chans = Array.from({ length: channels }, (_, c) => decoded.getChannelData(c));
+  for (let i = 0; i < frames; i++) {
+    let v = 0;
+    for (const ch of chans) v += ch[i];
+    data.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, Math.round((v / channels) * 32767))), true);
+  }
+  let binary = "";
+  const bytes = new Uint8Array(data.buffer);
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
 $("#runButton").addEventListener("click", async () => {
   const err = $("#setupError");
   err.textContent = "";
@@ -276,8 +323,15 @@ $("#runButton").addEventListener("click", async () => {
       } else if (audioKind() === "upload") {
         const file = $("#audioFile").files[0];
         if (!file) throw new Error("Choose an audio file, or use the sample clip.");
-        button.textContent = "Uploading audio…";
-        spec.audio = { kind: "upload", name: file.name, base64: await readAsBase64(file) };
+        // Without ffmpeg (the desktop build) the server reads WAV only, so the
+        // page decodes the file itself and sends it on as 48 kHz mono WAV.
+        if (appStatus.decoder === "builtin" && !/\.wav$/i.test(file.name)) {
+          button.textContent = "Converting audio…";
+          spec.audio = { kind: "upload", name: file.name.replace(/\.[^.]*$/, "") + ".wav", base64: await toWavBase64(file) };
+        } else {
+          button.textContent = "Uploading audio…";
+          spec.audio = { kind: "upload", name: file.name, base64: await readAsBase64(file) };
+        }
       } else spec.audio = { kind: "sample" };
     }
     const { id } = await api("/api/jobs", { method: "POST", body: spec });
@@ -432,12 +486,18 @@ $("#cancelRun").addEventListener("click", async () => {
 async function loadRuns() {
   const { runs } = await api("/api/runs");
   const list = $("#runList");
+  $("#runCount").textContent = runs.length ? String(runs.length) : "";
   if (!runs.length) return list.replaceChildren(el("li", { class: "muted" }, "No runs yet."));
   list.replaceChildren(...runs.map((r) => {
     const when = r.started_at ? new Date(r.started_at) : null;
+    const platform = platformName(r.meeting_platform, true);
     return el("li", {}, el("button", { type: "button", "data-run": r.id, onclick: () => showRun(r.id) },
-      el("span", { class: "when" }, when ? when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : r.id),
-      el("span", { class: "what" }, `${r.bot_name ? `${r.bot_name} · ` : ""}${r.providers} providers · ${r.scored ? "accuracy + speed" : "speed only"}`)));
+      el("span", { class: "what" }, audioName(r.clip)),
+      el("span", { class: "score", title: r.scored ? "Lowest word error rate in this run" : "No reference: speed and cost only" },
+        r.scored ? pct(r.best_wer) : "speed"),
+      el("span", { class: "meta" },
+        platform ? el("span", { class: "platform" }, platform) : null,
+        el("span", { class: "when", title: when ? when.toLocaleString() : null }, when ? shortWhen(when) : r.id))));
   }));
 }
 
@@ -485,7 +545,7 @@ function ticks(max, count = 4) {
  * the provider best on both in orange; every point is direct-labelled, so
  * identity never rests on color.
  */
-function tradeoff({ title, sub, rows, x, y }) {
+function tradeoff({ title, sub, rows, x, y, width = 520 }) {
   const pts = rows.filter((r) => x.get(r) != null && y.get(r) != null);
   const card = el("div", { class: "card chart" },
     el("div", { class: "card-head" }, el("div", {}, el("span", { class: "label" }, "Trade-off"), el("h3", {}, title)), el("span", { class: "hint" }, sub)));
@@ -495,7 +555,8 @@ function tradeoff({ title, sub, rows, x, y }) {
     return card;
   }
 
-  const W = 520, H = 310, m = { l: 52, r: 24, t: 30, b: 44 };
+  // Drawn at the card's own width, so text and marks are never scaled.
+  const W = width, H = 310, m = { l: 52, r: 24, t: 30, b: 44 };
   const xs = ticks(Math.max(...pts.map(x.get)) * 1.1), ys = ticks(Math.max(...pts.map(y.get)) * 1.15);
   const X = (v) => m.l + (v / xs[xs.length - 1]) * (W - m.l - m.r);
   const Y = (v) => H - m.b - (v / ys[ys.length - 1]) * (H - m.t - m.b);
@@ -515,8 +576,9 @@ function tradeoff({ title, sub, rows, x, y }) {
 
   // The provider that is best on both axes, if one is.
   const bx = Math.min(...pts.map(x.get)), by = Math.min(...pts.map(y.get));
-  const placed = [];
-  const fits = (b) => b.x >= 0 && b.x + b.w <= W && b.y >= 0 && b.y + b.h <= H - m.b &&
+  // Labels avoid each other, every point, and the y-axis ticks.
+  const placed = pts.map((p) => ({ x: X(x.get(p)) - 8, y: Y(y.get(p)) - 8, w: 16, h: 16 }));
+  const fits = (b) => b.x >= m.l && b.x + b.w <= W && b.y >= 0 && b.y + b.h <= H - m.b &&
     placed.every((o) => b.x + b.w < o.x || o.x + o.w < b.x || b.y + b.h < o.y || o.y + o.h < b.y);
   for (const p of [...pts].sort((a, b) => y.get(a) - y.get(b))) {
     const cx = X(x.get(p)), cy = Y(y.get(p));
@@ -532,7 +594,7 @@ function tradeoff({ title, sub, rows, x, y }) {
 
     // Direct label: right, left, above, below, whichever is free.
     const text = nameOf(p.provider), w = text.length * 7 + 4, h = 14;
-    const spots = [[cx + 10, cy - 7, "start"], [cx - 10 - w, cy - 7, "start"], [cx - w / 2, cy - 24, "start"], [cx - w / 2, cy + 10, "start"]];
+    const spots = [[cx + 10, cy - 7], [cx - 10 - w, cy - 7], [cx - 6, cy - 24], [cx - w / 2, cy - 24], [cx - 6, cy + 10], [cx - w / 2, cy + 10]];
     const spot = spots.find(([sx, sy]) => fits({ x: sx, y: sy, w, h })) ?? spots[0];
     placed.push({ x: spot[0], y: spot[1], w, h });
     g.append(svg("text", { class: "pt-label", x: spot[0], y: spot[1] + 11 }, text));
@@ -545,6 +607,12 @@ function tradeoff({ title, sub, rows, x, y }) {
 
 let sortState = null;
 let shownRun = null;
+let renderCharts = null;
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (!$("#resultView").hidden) renderCharts?.(); }, 120);
+});
 
 $("#addRefFile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
@@ -576,7 +644,10 @@ async function showRun(id) {
   const scored = results.reference_words != null;
   const ran = results.providers.filter((p) => p.ran);
 
-  $("#resultTitle").textContent = scored ? "Accuracy, speed and cost" : "Speed and cost";
+  const platform = platformName(recording?.meeting_platform);
+  const audio = audioName(recording ? recording.clip : undefined);
+  $("#resultTitle").textContent = platform ? `${audio} on ${platform}` : audio;
+  $("#resultKind").textContent = scored ? "Accuracy, speed and cost" : "Speed and cost";
   // No reference yet (people talking): offer to add what was said and score it.
   shownRun = id;
   $("#addRefCard").hidden = scored;
@@ -587,7 +658,7 @@ async function showRun(id) {
     ["Audio", recording?.clip?.synthetic_speech ? `Typed script · ${recording.clip.synthetic_speech} · ${recording.clip.seconds.toFixed(0)} s` : recording?.clip ? `${recording.clip.path.split("/").pop()} · ${recording.clip.seconds.toFixed(0)} s clip` : recording ? `Live speech${recording.bot_name ? ` · ${recording.bot_name}` : ""}` : "Existing recording"],
     ["Billed audio", results.billed_audio_seconds ? `${(results.billed_audio_seconds / 60).toFixed(2)} min` : "–"],
     ["Reference", scored ? `${results.reference_words} words` : "None (speed and cost only)"],
-    ["Platform", recording?.meeting_platform ?? "–"],
+    ["Platform", platform ?? "–"],
     ["Providers", `${ran.length} of ${results.providers.length} ran`],
   ];
   $("#specs").replaceChildren(...specs.map(([k, v]) => el("div", {}, el("dt", {}, k), el("dd", { title: v }, v))));
@@ -622,7 +693,7 @@ async function showRun(id) {
   const metrics = [
     ...(scored ? [accuracy] : [{ key: "words", label: "Words", sub: "not a quality score", fmt: (v) => String(v), neutral: true }]),
     turnaround,
-    { key: "cost_usd", label: "Cost", sub: "this recording", fmt: usd },
+    { key: "cost_usd", label: "Cost", sub: "this recording · per hour", fmt: usd, note: (p) => perHour(p.cost_per_hour_usd) },
   ];
   const bestOf = (m) => {
     const vals = ran.filter((p) => !m.eligible || m.eligible(p)).map((p) => p[m.key]).filter((v) => v != null);
@@ -667,14 +738,14 @@ async function showRun(id) {
         const width = v == null || !m.max ? 0 : Math.max(2, (v / m.max) * 100);
         const td = el("td", { class: isBest ? "best" : "" },
           el("div", { class: "metric" },
-            el("span", { class: "num" }, isBest ? el("span", { class: "badge" }, "BEST") : null, isBest ? " " : null, m.show ? m.show(p) : m.fmt(v)),
+            el("span", { class: "num" }, isBest ? el("span", { class: "badge" }, "BEST") : null, isBest ? " " : null, m.show ? m.show(p) : m.fmt(v),
+              m.note ? el("small", {}, m.note(p)) : null),
             el("div", { class: "track", "aria-hidden": "true" }, el("span", { class: `fill ${isBest ? "best" : ""}`, style: `width:${width}%` }))));
         td.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), [[m.label, m.fmt(v)], ...(m.best != null && v != null && !isBest ? [["vs best", `${(v / m.best).toFixed(1)}×`]] : [])]));
         td.addEventListener("pointerleave", hideTip);
         return td;
       },
     })),
-    { key: "cost_per_hour_usd", label: "Per hour", sub: "published rate", cell: (p) => el("td", {}, perHour(p.cost_per_hour_usd)) },
   ];
   if (scored) columns.splice(3, 0, { key: "sdi", label: "Sub / Del / Ins", sub: "word errors", cell: (p) => el("td", {}, `${p.substitutions} / ${p.deletions} / ${p.insertions}`) });
 
@@ -710,13 +781,32 @@ async function showRun(id) {
   const xCost = { label: "Cost per hour", get: (p) => p.cost_per_hour_usd, fmt: perHour, tick: (v) => `$${v.toFixed(2)}` };
   const xTime = { label: "Turnaround", get: (p) => p.turnaround_median_s, fmt: secs, tick: (v) => `${+v.toFixed(1)}s` };
   const yWer = { label: "WER", get: (p) => (p.wer == null ? null : p.wer * 100), fmt: (v) => `${v.toFixed(1)}%`, tick: (v) => `${+v.toFixed(1)}%` };
-  $("#charts").replaceChildren(...(scored
-    ? [tradeoff({ title: "Accuracy vs cost", sub: "WER against price per hour", rows: ran, x: xCost, y: yWer }),
-       tradeoff({ title: "Accuracy vs speed", sub: "WER against turnaround", rows: ran, x: xTime, y: yWer })]
-    : [tradeoff({ title: "Speed vs cost", sub: "Turnaround against price per hour", rows: ran, x: xCost, y: { ...xTime, fmt: secs, tick: (v) => `${+v.toFixed(0)}s` } })]));
+  renderCharts = () => {
+    // Two side by side when each gets at least 420 px, else one per row.
+    const box = $("#charts");
+    const specs = scored
+      ? [{ title: "Accuracy vs cost", sub: "WER against price per hour", rows: ran, x: xCost, y: yWer },
+         { title: "Accuracy vs speed", sub: "WER against turnaround", rows: ran, x: xTime, y: yWer }]
+      : [{ title: "Speed vs cost", sub: "Turnaround against price per hour", rows: ran, x: xCost, y: { ...xTime, fmt: secs, tick: (v) => `${+v.toFixed(0)}s` } }];
+    const cols = specs.length > 1 && box.clientWidth >= 2 * 420 + 8 ? 2 : 1;
+    box.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    const width = Math.max(280, Math.floor((box.clientWidth - (cols - 1) * 8) / cols) - 34); // card padding + border
+    box.replaceChildren(...specs.map((s) => tradeoff({ ...s, width })));
+  };
+  renderCharts();
 
+  // Two providers with the same transcript each carry a note naming the
+  // other: say it once, about both.
+  const twins = new Set();
   const noteItems = results.providers.flatMap((p) => [
-    ...(p.notes ?? []).map((n) => `${nameOf(p.provider)}: ${n}`),
+    ...(p.notes ?? []).flatMap((n) => {
+      const same = /^returned exactly the same transcript as (.+?)(, so .*)$/.exec(n);
+      if (!same) return [`${nameOf(p.provider)}: ${n}`];
+      const pair = [nameOf(p.provider), same[1]].sort().join(" and ");
+      if (twins.has(pair)) return [];
+      twins.add(pair);
+      return [`${nameOf(p.provider)} and ${same[1]} returned exactly the same transcript${same[2]}.`];
+    }),
     ...(p.failed_rounds ?? []).map((f) => `${nameOf(p.provider)}: round ${f.round} ${f.status}${f.error ? ` (${f.error})` : ""}`),
   ]);
   $("#notes").replaceChildren(...(noteItems.length ? [el("div", { class: "callout" }, el("strong", {}, "Notes on this run"), el("ul", {}, noteItems.map((n) => el("li", {}, n))))] : []));
@@ -731,6 +821,147 @@ async function showRun(id) {
       : null,
     el("pre", { class: "transcript" }, data.transcripts[p.provider] ?? "(transcript not available)"))));
 }
+
+// ── Providers ───────────────────────────────────────────────────────────────
+
+// What each provider is, and what to know when reading its numbers. The
+// settings sent and the price come from the server (src/providers.js and
+// src/pricing.js), so they can't drift from what a run actually does.
+const PROVIDER_INFO = {
+  meetstream: {
+    what: "MeetStream's own transcription engine, built into every MeetStream account.",
+    setup: "Built in: no key needed.",
+    notes: [
+      "Runs on JigsawStack. The two usually return the same transcript word for word, so count them as one result, not two that agree.",
+      "Set to auto-detect the language: MeetStream's docs don't confirm an English code. Detection can only cost it accuracy.",
+    ],
+  },
+  deepgram: {
+    what: "Deepgram's Nova-3 model for pre-recorded audio.",
+    setup: "Connect your Deepgram key in MeetStream: Integrations → Transcription.",
+    notes: ["Writes large amounts as figures (\"$4,200,000\"), which the scorer still counts as different words from \"four point two million dollars\"."],
+  },
+  assemblyai: {
+    what: "AssemblyAI's Universal-2 model.",
+    setup: "Connect your AssemblyAI key in MeetStream: Integrations → Transcription.",
+    notes: ["Speaker labels are on (MeetStream's default), which AssemblyAI bills as an add-on."],
+  },
+  sarvam: {
+    what: "Sarvam's Saaras v3 model. Sarvam focuses on Indian languages.",
+    setup: "Connect your Sarvam key in MeetStream: Integrations → Transcription.",
+    notes: ["Uses en-IN, the only English code in Sarvam's MeetStream docs. On American or British speech that may cost it accuracy.", "Diarization is on (MeetStream's default), which Sarvam prices higher."],
+  },
+  jigsawstack: {
+    what: "JigsawStack's speech-to-text API.",
+    setup: "Connect your JigsawStack key in MeetStream: Integrations → Transcription.",
+    notes: ["Billed per processing token, not per minute, so its cost is read from each response's own usage."],
+  },
+};
+
+async function loadProviderPage() {
+  const { providers, pricesAsOf } = await api("/api/providers");
+  $("#providerCards").replaceChildren(...providers.map((p) => {
+    const info = PROVIDER_INFO[p.key] ?? { what: "", setup: "", notes: [] };
+    const s = p.stats;
+    const settings = Object.entries(Object.values(p.config)[0] ?? {});
+    return el("article", { class: "card provider-card" },
+      el("header", { class: "pc-head" },
+        el("div", {}, el("h3", {}, nameOf(p.key)), el("p", { class: "hint" }, info.what)),
+        el("span", { class: `tag ${p.key === "meetstream" ? "ok" : ""}` }, p.key === "meetstream" ? "Built in" : "Your key")),
+      el("dl", { class: "pc-stats" },
+        el("div", {}, el("dt", {}, "WER, your runs"), el("dd", {}, s?.wer != null ? pct(s.wer) : "–"),
+          el("small", {}, s?.words ? `${s.words.toLocaleString()} words pooled` : "no scored runs yet")),
+        el("div", {}, el("dt", {}, "Median turnaround"), el("dd", {}, s?.turnaround_median_s != null ? secs(s.turnaround_median_s) : "–"),
+          el("small", {}, s?.turnaround_runs ? `over ${s.turnaround_runs} run${s.turnaround_runs > 1 ? "s" : ""}` : "not timed yet")),
+        el("div", {}, el("dt", {}, "Price"), el("dd", { class: "price" }, p.rate ?? "–"),
+          p.pricing ? el("small", {}, el("a", { href: p.pricing, target: "_blank", rel: "noopener" }, "Pricing page ↗")) : null)),
+      el("div", { class: "pc-section" },
+        el("h4", {}, "Sent with every request"),
+        el("div", { class: "settings-chips" }, settings.map(([k, v]) => el("code", {}, `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)))),
+      el("div", { class: "pc-section" },
+        el("h4", {}, "Setup"), el("p", {}, info.setup)),
+      info.notes.length ? el("div", { class: "pc-section" },
+        el("h4", {}, "Worth knowing"), el("ul", {}, info.notes.map((n) => el("li", {}, n)))) : null);
+  }));
+  $("#providerFoot").textContent = `Prices as published on ${pricesAsOf}, transcription only: MeetStream's bot fee is the same whichever provider you pick. "Your runs" pools every scored run in this app: WER is word errors over reference words, across runs.`;
+}
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+const KEY_ROWS = { MEETSTREAM_API_KEY: "#keyMeetstream", NGROK_AUTHTOKEN: "#keyNgrok" };
+const SOURCE_TEXT = {
+  env: "Set, from the .env file. Saving a new one here overrides it until you quit.",
+  saved: "Set, saved on this computer, encrypted by the operating system.",
+  session: "Set for this session only.",
+};
+const mb = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(0.1, bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+function renderKeys(keys, persistent) {
+  for (const [name, sel] of Object.entries(KEY_ROWS)) {
+    const row = $(sel), k = keys[name];
+    const status = $("[data-status]", row);
+    status.className = `key-status ${k.set ? "ok" : "missing"}`;
+    status.textContent = k.set ? SOURCE_TEXT[k.source] ?? "Set." : "Not set.";
+    $("[data-clear]", row).hidden = !k.set;
+    const test = $("[data-test]", row);
+    if (test) test.hidden = !k.set;
+  }
+  $("#keyStorageNote").textContent = persistent
+    ? "Keys you save here are encrypted with your operating system's key store and never sent back to this page."
+    : "Keys you save here are kept in memory until you stop the app, and never sent back to this page. To keep them, put them in the .env file next to the app.";
+}
+
+async function loadSettings() {
+  const s = await api("/api/settings");
+  renderKeys(s.keys, s.persistent);
+  $("#dataPath").textContent = s.storage.path;
+  $("#openDataFolder").hidden = !s.desktop;
+  const parts = [["Runs", s.storage.runs], ["Sample clip", s.storage.sample], ["Uploaded audio", s.storage.uploads], ["Recordings", s.storage.recordings]];
+  const total = parts.reduce((a, [, b]) => a + b, 0) || 1;
+  $("#storageBar").replaceChildren(...parts.map(([, b], i) => el("span", { class: `seg s${i}`, style: `flex-grow:${b / total}` })));
+  $("#storageList").replaceChildren(
+    ...parts.map(([k, b], i) => el("div", {}, el("dt", {}, el("i", { class: `swatch s${i}` }), k), el("dd", {}, mb(b)))),
+    el("div", { class: "total" }, el("dt", {}, "Total"), el("dd", {}, mb(total))));
+  $("#aboutList").replaceChildren(...[
+    ["Version", s.version],
+    ["Audio decoding", s.decoder === "ffmpeg" ? "ffmpeg (any format)" : "Built in (WAV; other formats are converted in the page)"],
+    ["Prices as of", s.pricesAsOf],
+  ].map(([k, v]) => el("div", {}, el("dt", {}, k), el("dd", {}, v))));
+}
+
+for (const [name, sel] of Object.entries(KEY_ROWS)) {
+  const row = $(sel), input = $("[data-input]", row), result = $("[data-result]", row);
+  const say = (text, kind = "") => { result.textContent = text; result.className = `key-result ${kind}`; };
+  const save = async () => {
+    if (!input.value.trim()) return say("Paste a key first.", "error");
+    const r = await api("/api/keys", { method: "POST", body: { [name]: input.value } });
+    input.value = "";
+    renderKeys(r.keys, (await api("/api/settings")).persistent);
+    say("Saved.", "ok");
+    refreshStatus();
+  };
+  $("[data-save]", row).addEventListener("click", save);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+  $("[data-clear]", row).addEventListener("click", async () => {
+    if (!confirm("Remove this key from the app?")) return;
+    const r = await api("/api/keys", { method: "POST", body: { clear: [name] } });
+    renderKeys(r.keys, (await api("/api/settings")).persistent);
+    say(r.keys[name].set ? "" : "Removed.", "ok");
+    refreshStatus();
+  });
+  $("[data-test]", row)?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    say("Checking with MeetStream…");
+    try {
+      const r = await api("/api/keys/test", { method: "POST" });
+      say(`Connected. The account has ${r.bots} recent bot${r.bots === 1 ? "" : "s"}.`, "ok");
+    } catch (err) {
+      say(err.message, "error");
+    }
+    e.target.disabled = false;
+  });
+}
+$("#openDataFolder").addEventListener("click", () => api("/api/data-folder/open", { method: "POST" }));
 
 // ── Start ───────────────────────────────────────────────────────────────────
 

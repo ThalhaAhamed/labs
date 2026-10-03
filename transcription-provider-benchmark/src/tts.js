@@ -38,8 +38,8 @@ function run(cmd, args) {
 }
 
 /**
- * Speaks `text` into an audio file in `dir`. Returns its path (WAV, or AIFF
- * on macOS; the recorder decodes either with ffmpeg).
+ * Speaks `text` into a WAV file in `dir` and returns its path. Always WAV, so
+ * the desktop app's built-in decoder can read it without ffmpeg.
  */
 async function synthesize(text, dir) {
   const engine = ttsEngine();
@@ -64,8 +64,8 @@ async function synthesize(text, dir) {
     return { file: out, engine: engine.name };
   }
   if (engine.kind === "say") {
-    const out = path.join(dir, "speech.aiff");
-    await run("say", ["-f", textFile, "-o", out]);
+    const out = path.join(dir, "speech.wav");
+    await run("say", ["-f", textFile, "-o", out, "--file-format=WAVE", "--data-format=LEI16@22050"]);
     return { file: out, engine: engine.name };
   }
   const out = path.join(dir, "speech.wav");

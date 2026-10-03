@@ -74,12 +74,15 @@
       "desktop/**",
       "sample/reference.txt",
       "sample/manifest.json",
+      "sample/clip.wav",
       "results/2026-09-28T18-08-58Z/**",
+      "!node_modules/ffmpeg-static/**",
       "!**/*.map"
     ],
-    "asarUnpack": [
-      "node_modules/ffmpeg-static/**"
+    "electronLanguages": [
+      "en-US"
     ],
+    "compression": "maximum",
     "win": {
       "target": [
         {

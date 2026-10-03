@@ -97,6 +97,31 @@ test("a reference that doesn't fit the audio, or a speaker bot, is refused befor
   assert.match(speaker.json.error, /speaker bot/);
 });
 
+test("settings say where each key came from, never what it is, and a key can be removed", async () => {
+  await request("POST", "/api/keys", { body: { MEETSTREAM_API_KEY: "secret-key-value" } });
+  let settings = await request("GET", "/api/settings");
+  assert.equal(settings.status, 200);
+  assert.doesNotMatch(settings.text, /secret-key-value/);
+  assert.deepEqual(settings.json.keys.MEETSTREAM_API_KEY, { set: true, source: "session" }); // no key store: memory only
+  assert.equal(settings.json.persistent, false);
+  assert.equal(settings.json.storage.path, DATA);
+  assert.ok(settings.json.storage.runs > 0);
+  const cleared = await request("POST", "/api/keys", { body: { clear: ["MEETSTREAM_API_KEY"] } });
+  assert.equal(cleared.json.hasKey, false);
+  settings = await request("GET", "/api/settings");
+  assert.deepEqual(settings.json.keys.MEETSTREAM_API_KEY, { set: false, source: null });
+  assert.equal((await request("POST", "/api/data-folder/open")).status, 400); // not the desktop app
+});
+
+test("each provider's record across saved runs is pooled over scored runs only", async () => {
+  const { providers } = (await request("GET", "/api/providers")).json;
+  const deepgram = providers.find((p) => p.key === "deepgram");
+  assert.equal(deepgram.stats.runs, 2);
+  assert.equal(deepgram.stats.words, 9); // the speed-only run adds no words
+  assert.equal(deepgram.stats.wer, 0);
+  assert.equal(providers.find((p) => p.key === "sarvam").stats, null);
+});
+
 test("adding what was said to a speed-only run scores it, once", async () => {
   const id = "2026-01-02T00-00-00Z";
   assert.equal((await request("GET", `/api/runs/${id}`)).json.results.reference_words, null);

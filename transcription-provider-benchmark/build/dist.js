@@ -20,6 +20,13 @@ const info = harnessInfo();
 fs.writeFileSync(path.join(__dirname, "..", "build-info.json"),
   JSON.stringify({ commit: info.commit, dirty: info.dirty, built_at: new Date().toISOString() }, null, 2) + "\n");
 
+// The app ships the sample clip (it can't build it: that needs ffmpeg, which
+// the desktop build leaves out). Build it here first if this checkout hasn't.
+if (!fs.existsSync(path.join(__dirname, "..", "sample", "clip.wav"))) {
+  const built = spawnSync(process.execPath, [path.join(__dirname, "..", "scripts", "fetch-sample.js")], { stdio: "inherit" });
+  if (built.status !== 0) process.exit(built.status ?? 1);
+}
+
 const args = process.argv.slice(2);
 if (process.env.ELECTRON_CACHE) args.push(`--config.electronDownload.cache=${process.env.ELECTRON_CACHE}`);
 

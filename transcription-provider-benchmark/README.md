@@ -88,10 +88,12 @@ The installers aren't code-signed yet, so the first launch asks you to confirm:
 
 Inside the app:
 - **Everything the browser version does,** with Node bundled (the app runs the same `index.js` through Electron).
-- **Data lives in your user folder,** not next to the app: `%APPDATA%\Transcriber Benchmark` on Windows, `~/Library/Application Support/Transcriber Benchmark` on macOS, and `~/.config/Transcriber Benchmark` on Linux. Help → Open data folder takes you there. The published example run is copied in on first launch.
-- **Keys typed into the app are remembered,** encrypted by the operating system's key store (DPAPI, Keychain or libsecret). If no key store is available, they're kept in memory only.
+- **Data lives in your user folder,** not next to the app: `%APPDATA%\Transcriber Benchmark` on Windows, `~/Library/Application Support/Transcriber Benchmark` on macOS, and `~/.config/Transcriber Benchmark` on Linux. Settings shows where, how much space each part takes, and opens the folder. The published example run and the sample clip are copied in on first launch.
+- **Keys are set in Settings** (MeetStream API key, and the ngrok authtoken for the speaker bot). They're remembered, encrypted by the operating system's key store (DPAPI, Keychain or libsecret). If no key store is available, they're kept in memory only. Settings can also test the MeetStream key.
+- **Providers** shows each provider's exact settings, price and caveats, and how it has done across your runs.
+- **Small:** about 340 MB installed (a 111 MB installer on Windows), most of it Electron itself. The app leaves out ffmpeg (80 MB) and ships English UI strings only. Everything it plays is WAV: the sample clip ships with it, text-to-speech writes WAV, and the page converts any other audio file to WAV before sending it.
 
-**Building the installers.** Each installer has to be built on its own OS, because ffmpeg and ngrok ship a native binary for the machine that runs `npm ci`.
+**Building the installers.** Each installer has to be built on its own OS, because ngrok ships a native binary for the machine that runs `npm ci`. The build makes the sample clip first if the checkout doesn't have it (that step uses ffmpeg, which the command line keeps).
 
 ```bash
 npm run desktop        # run the desktop app from source
