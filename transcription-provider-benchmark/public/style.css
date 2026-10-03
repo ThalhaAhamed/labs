@@ -366,6 +366,9 @@ tr.first .rank { color: var(--brand); }
 .fill { position: absolute; inset: 0 auto 0 0; border-radius: 0 3px 3px 0; background: var(--viz-rest); }
 .fill.best { background: var(--viz-best); }
 .badge { font: 600 10px var(--mono); letter-spacing: .06em; padding: 1px 5px; border-radius: 3px; background: var(--brand-soft); color: var(--brand); }
+/* Tied with the best: same group, quieter than BEST. */
+.badge.tie { background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-strong); cursor: help; }
+.fill.tie { background: color-mix(in srgb, var(--viz-best) 45%, var(--viz-rest)); }
 td.best .num { font-weight: 600; color: var(--ink); }
 th small { display: block; font-size: 10px; letter-spacing: .02em; text-transform: none; color: var(--muted); font-weight: 400; }
 #resultTable td { vertical-align: middle; }
