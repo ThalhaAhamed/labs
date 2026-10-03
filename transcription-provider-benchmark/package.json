@@ -1,6 +1,6 @@
 {
   "name": "meetstream-transcription-provider-benchmark",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Runs one meeting recording through every MeetStream transcription provider and tabulates word error rate and turnaround time.",
   "main": "desktop/main.js",
   "scripts": {
@@ -92,7 +92,7 @@
           ]
         }
       ],
-      "artifactName": "Transcriber-Benchmark-Setup-${version}.${ext}",
+      "artifactName": "Transcriber-Benchmark-${version}-Windows.${ext}",
       "icon": "build/icon.ico"
     },
     "nsis": {
@@ -109,7 +109,7 @@
         "dmg"
       ],
       "category": "public.app-category.developer-tools",
-      "artifactName": "Transcriber-Benchmark-${version}-${arch}.${ext}",
+      "artifactName": "Transcriber-Benchmark-${version}-Mac-${arch}.${ext}",
       "icon": "build/icon.icns"
     },
     "linux": {
@@ -120,7 +120,7 @@
       "category": "Development",
       "synopsis": "Compare transcription providers on the same audio",
       "maintainer": "MeetStream Labs",
-      "artifactName": "Transcriber-Benchmark-${version}-${arch}.${ext}",
+      "artifactName": "Transcriber-Benchmark-${version}-Linux-${arch}.${ext}",
       "icon": "build/icon.png",
       "syncDesktopName": true,
       "executableName": "transcriber-benchmark"
