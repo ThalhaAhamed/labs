@@ -709,11 +709,8 @@ async function showRun(id) {
 
   const who = (m) => {
     if (m.best == null) return "not measured";
-    // The top score's providers, then any tied with it (as the leaderboard's BEST and TIE).
-    const group = ran.filter((p) => isBestFor(m, p));
-    const top = group.filter((p) => p[m.key] === m.best).map((p) => nameOf(p.provider));
-    const tied = group.filter((p) => p[m.key] !== m.best).map((p) => nameOf(p.provider));
-    return tied.length ? `${top.join(", ")}. Tied: ${tied.join(", ")}` : top.join(", ");
+    // The providers with the top score itself (the leaderboard's BEST).
+    return ran.filter((p) => isBestFor(m, p) && p[m.key] === m.best).map((p) => nameOf(p.provider)).join(", ");
   };
   $("#summaryCards").replaceChildren(...metrics.filter((m) => !m.neutral).map((m) =>
     el("div", { class: "stat" },
@@ -728,7 +725,7 @@ async function showRun(id) {
   const score = (p) => p[primary.key] ?? Infinity;
   const rankOf = new Map(rankOrder.map((p) => [p.provider, 1 + ran.filter((o) => score(o) < score(p)).length]));
   $("#boardTitle").textContent = `Ranked by ${primary.key === "wer" ? "accuracy" : "turnaround"}`;
-  $("#rankHint").textContent = "BEST is the top score; TIE can't be told apart from it. Click a column to re-sort.";
+  $("#rankHint").textContent = "BEST marks the top score. Click a column to re-sort.";
 
   const columns = [
     { key: "rank", label: "#", cell: (p) => el("td", { class: "rank" }, p.ran ? String(rankOf.get(p.provider)).padStart(2, "0") : "–") },
@@ -737,24 +734,20 @@ async function showRun(id) {
       key: m.key, label: m.label, sub: m.sub,
       cell: (p) => {
         const v = p[m.key];
-        // BEST for the top score itself; TIE for scores that can't be told
-        // apart from it (inside the noise band, or an overlapping window).
-        const inTopGroup = isBestFor(m, p);
-        const isTop = inTopGroup && v === m.best;
-        const isTie = inTopGroup && !isTop;
+        // BEST only for the top score. A score inside the noise band of it (or
+        // an overlapping turnaround window) says so on hover, not with a badge.
+        const nearTop = isBestFor(m, p);
+        const isTop = nearTop && v === m.best;
         const width = v == null || !m.max ? 0 : Math.max(2, (v / m.max) * 100);
-        const badge = isTop ? el("span", { class: "badge" }, "BEST")
-          : isTie ? el("span", { class: "badge tie", title: m.tieLabel ? `Tied: ${m.tieLabel} of the best` : "Tied: can't be told apart from the best" }, "TIE")
-          : null;
-        const td = el("td", { class: isTop ? "best" : isTie ? "tie" : "" },
+        const td = el("td", { class: isTop ? "best" : "" },
           el("div", { class: "metric" },
-            el("span", { class: "num" }, badge, badge ? " " : null, m.show ? m.show(p) : m.fmt(v),
+            el("span", { class: "num" }, isTop ? el("span", { class: "badge" }, "BEST") : null, isTop ? " " : null, m.show ? m.show(p) : m.fmt(v),
               m.note ? el("small", {}, m.note(p)) : null),
-            el("div", { class: "track", "aria-hidden": "true" }, el("span", { class: `fill ${isTop ? "best" : isTie ? "tie" : ""}`, style: `width:${width}%` }))));
+            el("div", { class: "track", "aria-hidden": "true" }, el("span", { class: `fill ${isTop ? "best" : ""}`, style: `width:${width}%` }))));
         td.addEventListener("pointerenter", (e) => showTip(e, nameOf(p.provider), [
           [m.label, m.fmt(v)],
-          ...(isTie ? [["vs best", m.tieLabel ? `tied, ${m.tieLabel}` : "tied, can't be told apart"]] : []),
-          ...(m.best != null && v != null && !inTopGroup ? [["vs best", `${(v / m.best).toFixed(1)}×`]] : []),
+          ...(m.best != null && v != null && !isTop
+            ? [["vs best", nearTop ? (m.tieLabel ?? "can't be told apart") : `${(v / m.best).toFixed(1)}×`]] : []),
         ]));
         td.addEventListener("pointerleave", hideTip);
         return td;
