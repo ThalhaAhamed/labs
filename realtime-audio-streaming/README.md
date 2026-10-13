@@ -236,7 +236,8 @@ MeetStream bot -> your server -> /stream -> bridge.js -> [any provider] -> resul
 Status of the built-in providers:
 - **AssemblyAI** was rewritten for Universal-Streaming v3. It had been connecting to the v3 URL while speaking the old v2 protocol, so it never produced a transcript.
 - **OpenAI** was rewritten for `gpt-live-transcribe` and 24 kHz input, following OpenAI's current docs.
-- **Not yet run against the live APIs:** these two rewrites, and the Deepgram timing and flush that `compare.js` adds. The tests cover their message handling offline only.
+- **Run against the live APIs (2026-10-02):** Deepgram and AssemblyAI, through `compare.js` in file mode, on a 191 s clip and a 122 s clip. Both returned final transcripts and scored as expected.
+- **Not yet run against the live API:** OpenAI. Its rewrite is built from OpenAI's docs, and the tests cover its message handling offline only.
 
 
 | Provider | `.env` value | Needs |
