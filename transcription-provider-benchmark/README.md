@@ -2,7 +2,7 @@
 
 This harness runs **one meeting recording through every transcription provider MeetStream supports** and outputs a table of word error rate and turnaround time.
 
-**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md)** ([PDF](reports/2026-10-02/REPORT.pdf)). Nine recordings on Google Meet, Microsoft Teams and Zoom, each sent to all five providers: the sample clip recorded six times (four on Meet, one on Teams, one on Zoom), a typed script read by text-to-speech, a second clip, and a person reading aloud. 3,087 reference words in total, and every provider succeeded on every run. The report also covers live (streaming) transcription with Deepgram and AssemblyAI.
+**Latest report: [reports/2026-10-02](reports/2026-10-02/REPORT.md)** ([PDF](reports/2026-10-02/REPORT.pdf)). Nine recordings on Google Meet, Microsoft Teams and Zoom, each sent to all five providers: the sample clip recorded six times (four on Meet, one on Teams, one on Zoom), a typed script read by text-to-speech, a second clip, and a person reading aloud. 3,087 reference words in total, and every provider succeeded on every run.
 
 | Provider | WER (pooled, 9 runs) | Range over runs | Turnaround (median, 8 runs) | Slowest run | Per hour |
 |---|---:|---:|---:|---:|---:|
@@ -19,7 +19,6 @@ How to read this:
 
 - **Accuracy:** Mia Transcribe/JigsawStack and AssemblyAI are tied at the top: gaps under 0.7 points are sampling noise on 3,087 words. Deepgram (+1.1 points) and Sarvam (+2.0) are measurably behind. The same order holds on the sample clip on each platform: Meet, Teams and Zoom.
 - **Speed varies a lot from run to run, mostly because of MeetStream.** In one run the same engine took 22.6 s as Mia Transcribe and 5.0 s as JigsawStack. Only the medians and the consistent gaps mean anything: Deepgram, JigsawStack and Mia Transcribe are fastest, AssemblyAI is in the middle, and Sarvam was slowest in 7 of 8 runs. Turnaround is MeetStream's end-to-end time from the re-transcribe request, known to within 1 s, not the provider's own API latency.
-- **Live (streaming):** on the sample clip, AssemblyAI live scored 1.2% and Deepgram Nova-3 live 3.6%, with final text a median 0.3–0.4 s after each phrase.
 - **One recording isn't enough.** The same clip recorded four times moved a provider's WER by up to 1.5 points.
 - **Scored on words, not formatting.** Spelling conventions, contractions, compound spacing, "$4.2 million" and "November 14" aren't counted as errors (see [METHODOLOGY.md](METHODOLOGY.md#accuracy-word-error-rate)). The independent scorer (`scripts/score_jiwer.py`, jiwer with Whisper's normaliser) puts the providers in the same order.
 - **Limits:** one LibriSpeech speaker on the clips, one synthetic voice, one person reading; read speech, not meetings; one recording each on Teams and Zoom; LibriSpeech may be in providers' training data. Each provider uses its documented English setting (`auto` for Mia Transcribe, `en-IN` for Sarvam).
@@ -29,11 +28,9 @@ The earlier single-run result (Test 1, 28 Sep) is run 1 of the report, and its f
 
 **Read [METHODOLOGY.md](METHODOLOGY.md) before trusting any number this produces.** It covers what is measured and what is not, how each provider is configured, and how to check a result with a scorer MeetStream did not write.
 
-## Related: live providers
+## Scope
 
-This harness compares MeetStream's **post-call** providers: the ones you configure on the dashboard's Integrations page, run on a finished recording.
-
-[`../realtime-audio-streaming`](../realtime-audio-streaming) is the example that switches between **live streaming** providers (Deepgram, AssemblyAI, OpenAI) during a call. A compare mode for it (`npm run compare`: the same audio to all of them at once, with WER and finalisation latency from this harness's scorer) is coming in a separate pull request. It produced the live-streaming results in [the 2026-10-02 report](reports/2026-10-02/REPORT.md#live-streaming-transcription).
+This harness compares MeetStream's **post-call** providers: the ones you configure on the dashboard's Integrations page, run on a finished recording. It doesn't measure live (streaming) transcription.
 
 ## How it works
 

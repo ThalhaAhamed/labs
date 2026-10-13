@@ -1,8 +1,8 @@
 # Transcription provider benchmark: report, 2026-10-02
 
-Nine recordings on three meeting platforms (Google Meet, Microsoft Teams and Zoom), each transcribed by all five providers MeetStream offers: Mia Transcribe, JigsawStack, AssemblyAI, Deepgram and Sarvam. The same sample clip was recorded six times: four times on Meet, once on Teams and once on Zoom. Three more Meet runs cover other kinds of speech: a typed script read by text-to-speech, a second clip, and a person reading aloud. Every provider succeeded on every run. Separately, the two clips were streamed in real time to Deepgram's and AssemblyAI's live (streaming) APIs.
+Nine recordings on three meeting platforms (Google Meet, Microsoft Teams and Zoom), each transcribed by all five providers MeetStream offers: Mia Transcribe, JigsawStack, AssemblyAI, Deepgram and Sarvam. The same sample clip was recorded six times: four times on Meet, once on Teams and once on Zoom. Three more Meet runs cover other kinds of speech: a typed script read by text-to-speech, a second clip, and a person reading aloud. Every provider succeeded on every run.
 
-Everything below comes from the run folders listed in [runs.json](runs.json) and the live results in [live/](live/). `node scripts/summarize.js reports/2026-10-02` regenerates every post-call table ([summary.md](summary.md), [summary.json](summary.json)), and `npm run score -- results/<run>` re-scores any single run. Method: [METHODOLOGY.md](../../METHODOLOGY.md).
+Everything below comes from the run folders listed in [runs.json](runs.json) . `node scripts/summarize.js reports/2026-10-02` regenerates every post-call table ([summary.md](summary.md), [summary.json](summary.json)), and `npm run score -- results/<run>` re-scores any single run. Method: [METHODOLOGY.md](../../METHODOLOGY.md).
 
 ## Findings
 
@@ -15,9 +15,8 @@ Everything below comes from the run folders listed in [runs.json](runs.json) and
    - In one run Mia Transcribe took 22.6 s and JigsawStack 5.0 s on the same recording, although they're the same engine.
 
    Only the medians and the consistent gaps mean anything; a single run can't rank providers on speed.
-6. **Live (streaming) transcription is about as accurate as post-call, and final text arrives in under half a second.** On the sample clip, AssemblyAI live scored 1.2% and Deepgram Nova-3 live 3.6%. The median time from the end of a phrase to its final transcript was 0.43 s for AssemblyAI and 0.28–0.36 s for Deepgram. Clip B was harder for both: 5.1% and 6.3%.
-7. **Harder audio spreads the field.** On clip B (new sentences with rare names) every provider did worse post-call: 2.9% for Mia Transcribe, up to 7.4% for Sarvam. On clean synthetic speech, everyone scored 0–1.8%, and Deepgram's 1.8% is entirely number formatting (see below).
-8. **Cost** per hour of audio, at each provider's published rate: JigsawStack $0.03, Mia Transcribe $0.10, AssemblyAI $0.17, Deepgram $0.26, Sarvam $0.47. All nine post-call runs together cost $0.48 in transcription (MeetStream bot fees are extra).
+6. **Harder audio spreads the field.** On clip B (new sentences with rare names) every provider did worse post-call: 2.9% for Mia Transcribe, up to 7.4% for Sarvam. On clean synthetic speech, everyone scored 0–1.8%, and Deepgram's 1.8% is entirely number formatting (see below).
+7. **Cost** per hour of audio, at each provider's published rate: JigsawStack $0.03, Mia Transcribe $0.10, AssemblyAI $0.17, Deepgram $0.26, Sarvam $0.47. All nine post-call runs together cost $0.48 in transcription (MeetStream bot fees are extra).
 
 ## Results
 
@@ -67,17 +66,6 @@ Runs 1–4, 8 and 9 are the sample clip; run 5 is the typed script, run 6 clip B
 
 This is MeetStream's end-to-end time: from sending the re-transcribe request to the first poll that saw the result. It includes MeetStream's queueing, not just the provider's processing. Each value is known to within 1 s. Per-run windows are in [summary.md](summary.md). Run 1 (Test 1) used a 5 s poll and isn't included.
 
-### Live (streaming) transcription
-
-The `realtime-audio-streaming` example's compare mode (`npm run compare`, in a separate pull request to labs) streamed each clip in real time to both providers' live APIs at once. Results: [live/](live/).
-
-| Provider (live) | Sample clip WER | Clip B WER | Final transcript after a phrase ends: median | p90 |
-|---|---:|---:|---:|---:|
-| AssemblyAI | 1.2% | 5.1% | 0.43 s | 0.52–0.55 s |
-| Deepgram (Nova-3) | 3.6% | 6.3% | 0.28–0.36 s | 0.47–1.56 s |
-
-The clips were streamed from files, not through a meeting. So this measures the providers' live accuracy and finalisation speed on clean audio, not end-to-end meeting latency. OpenAI's live API wasn't tested (no key).
-
 ### The independent scorer
 
 `scripts/score_jiwer.py` ([its output](jiwer-crosscheck.txt); jiwer with OpenAI Whisper's normaliser, written by neither MeetStream nor this harness) re-scored all nine runs. Its figures differ from ours by up to 1.2 points, in both directions:
@@ -96,7 +84,6 @@ It puts the providers in the same order in every run, except where two of them a
 | 7 | A person reading aloud | Google Meet | A person reading a 126-word script ([inputs/read-aloud-script.txt](inputs/read-aloud-script.txt)) into the call. Recorder bot only | The script, added after the run, with one word corrected to what the reader said |
 | 8 | Sample clip | Microsoft Teams | As runs 1–4 | As runs 1–4 |
 | 9 | Sample clip | Zoom | As runs 1–4 | As runs 1–4 |
-| live | Sample clip and clip B | (none) | The same files, streamed in real time to each live API | As above |
 
 Runs 2–7 were benchmarked with harness commit `d1e29bc`, run 8 with `9dba41b` and run 9 with `7ad01ba`, each with no uncommitted changes and polling every second. Run 1 is the earlier Test 1 (28 Sep, 5 s poll, harness commit not recorded). All nine were scored with normaliser v3. Every run folder holds the raw response from each provider, the reference, and the normalised texts.
 
@@ -105,7 +92,6 @@ Runs 2–7 were benchmarked with harness commit `d1e29bc`, run 8 with `9dba41b` 
 - **Two scoring rules were added and applied to every run.** On the typed script, every provider wrote "$4.2 million" for "four point two million dollars", and three wrote "November 14" for "November fourteenth". Both were charged as errors. Normaliser v3 now reads money with a scale word and month-day dates the way they're said. Re-scoring changed only the typed-script run (Mia Transcribe, JigsawStack, AssemblyAI and Sarvam went from 1.2–1.8% to 0.0%; Deepgram from 2.4% to 1.8%).
 - **Deepgram writes large amounts as digits** ("$4,200,000"). That's the same amount, but it's still charged here. It's Deepgram's entire 1.8% on the typed script.
 - **The person-reading run's reference was corrected for one word the reader confirmed.** All five providers heard "**This** is the end" where the script says "**That** is the end". The reader confirmed "This", and `run.json` records the change, why, and the previous hash. All five also wrote "one hundred twelve" where the script says "one hundred **and** twelve". That wasn't confirmed, so it's left as written and costs every provider the same 0.8 points.
-- **The live Deepgram connector wasn't choosing a model.** Its first live run scored 14.5% (sample clip) and 15.4% (clip B), because Deepgram fell back to its legacy "base" model. The connector now asks for `model=nova-3` and English, which gave 3.6% and 6.3%. Both sets of results are kept in [live/](live/), and only Nova-3 is reported above.
 - **Zoom needs setup that Meet and Teams don't.**
   - MeetStream needs a Zoom Meeting SDK app's credentials, with "programmatic join" enabled. Without them the bot is refused, or fails with a Zoom authentication error.
   - The meeting host must allow the bot to record when Zoom asks. Otherwise it leaves after about a minute with nothing captured.
@@ -120,7 +106,6 @@ Runs 2–7 were benchmarked with harness commit `d1e29bc`, run 8 with `9dba41b` 
 - **Platforms.** Four recordings on Google Meet, but only one each on Teams and Zoom. That's enough to show the order holds on all three, not to compare the platforms' audio quality.
 - **Sample size.** 3,087 reference words in total; gaps under 0.7 points are noise. Four recordings of one clip show up to 1.5 points of spread per provider.
 - **Turnaround** is through MeetStream, from one machine and one network, over about 90 minutes on one evening. Load at other times may differ.
-- **Live results** were streamed from files, not from a meeting. OpenAI's live API wasn't tested.
 - **Settings.** Each provider uses its documented English setting through MeetStream, with defaults otherwise: `auto` for Mia Transcribe, `en` for Deepgram and JigsawStack, `en_us` for AssemblyAI, `en-IN` for Sarvam.
 - **Same audio for every provider** follows from MeetStream's design (one stored recording, re-transcribed per provider). The harness can't see the bytes MeetStream sends each one. The lengths providers report agree.
 - **Not tested:** diarization, timestamps, and the provider's own API latency.
