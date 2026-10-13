@@ -1,5 +1,6 @@
 {
   "title": "Transcription provider benchmark, 2026-09-28 to 2026-10-02",
+  "hide_providers": ["jigsawstack"],
   "runs": [
     { "id": "2026-09-28T18-08-58Z", "test": "sample", "platform": "Google Meet", "label": "Sample clip, recording A (Test 1)", "note": "5 s poll; JigsawStack re-run on its own" },
     { "id": "2026-10-02T19-10-28Z", "test": "sample", "platform": "Google Meet", "label": "Sample clip, recording B" },

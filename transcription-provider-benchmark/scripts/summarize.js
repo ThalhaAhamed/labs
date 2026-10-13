@@ -17,10 +17,15 @@ if (!dir) throw new Error("Usage: node scripts/summarize.js reports/<date>");
 const spec = JSON.parse(fs.readFileSync(path.join(dir, "runs.json"), "utf8"));
 const ROOT = path.join(__dirname, "..");
 
-const runs = spec.runs.map((r) => {
+const rawRuns = spec.runs.map((r) => {
   const base = path.join(ROOT, "results", r.id);
   return { ...r, results: JSON.parse(fs.readFileSync(path.join(base, "results.json"), "utf8")), run: JSON.parse(fs.readFileSync(path.join(base, "run.json"), "utf8")) };
 });
+// runs.json may list providers to leave out of the published tables
+// ("hide_providers"). Their raw results stay in the run folders, and the
+// transcription spend below still counts everything that was run.
+const hidden = new Set(spec.hide_providers ?? []);
+const runs = rawRuns.map((r) => ({ ...r, results: { ...r.results, providers: r.results.providers.filter((p) => !hidden.has(p.provider)) } }));
 const providers = [...new Set(runs.flatMap((r) => r.results.providers.map((p) => p.provider)))];
 const row = (r, p) => r.results.providers.find((x) => x.provider === p);
 
@@ -50,7 +55,7 @@ const turnaround = Object.fromEntries(providers.map((p) => {
   return [p, { runs: ups.length, median: median(ups), min: ups.length ? Math.min(...ups) : null, max: ups.length ? Math.max(...ups) : null }];
 }));
 const perHour = Object.fromEntries(providers.map((p) => [p, runs.map((r) => row(r, p)?.cost_per_hour_usd).find((x) => x != null) ?? null]));
-const spent = runs.reduce((n, r) => n + r.results.providers.reduce((m, x) => m + (x.cost_usd ?? 0), 0), 0);
+const spent = rawRuns.reduce((n, r) => n + r.results.providers.reduce((m, x) => m + (x.cost_usd ?? 0), 0), 0);
 const sameEngine = runs.map((r) => ({ id: r.id, identical: !!row(r, "meetstream")?.same_output_as?.includes("jigsawstack") }));
 
 const summary = {
