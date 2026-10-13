@@ -69,7 +69,7 @@ This is MeetStream's end-to-end time: from sending the re-transcribe request to 
 
 ### Live (streaming) transcription
 
-The `realtime-audio-streaming` example (`npm run compare`) streamed each clip in real time to both providers' live APIs at once. Results: [live/](live/).
+The `realtime-audio-streaming` example's compare mode (`npm run compare`, in a separate pull request to labs) streamed each clip in real time to both providers' live APIs at once. Results: [live/](live/).
 
 | Provider (live) | Sample clip WER | Clip B WER | Final transcript after a phrase ends: median | p90 |
 |---|---:|---:|---:|---:|

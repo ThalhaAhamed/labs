@@ -33,7 +33,7 @@ The earlier single-run result (Test 1, 28 Sep) is run 1 of the report, and its f
 
 This harness compares MeetStream's **post-call** providers: the ones you configure on the dashboard's Integrations page, run on a finished recording.
 
-[`../realtime-audio-streaming`](../realtime-audio-streaming) is the example that switches between **live streaming** providers (Deepgram, AssemblyAI, OpenAI) during a call. Its `npm run compare` sends the same audio to all of them at once and tabulates WER and finalisation latency with this harness's scorer. Point it at this harness's `sample/clip.wav` and `sample/reference.txt` to put live and post-call numbers on the same clip.
+[`../realtime-audio-streaming`](../realtime-audio-streaming) is the example that switches between **live streaming** providers (Deepgram, AssemblyAI, OpenAI) during a call. A compare mode for it (`npm run compare`: the same audio to all of them at once, with WER and finalisation latency from this harness's scorer) is coming in a separate pull request. It produced the live-streaming results in [the 2026-10-02 report](reports/2026-10-02/REPORT.md#live-streaming-transcription).
 
 ## How it works
 
